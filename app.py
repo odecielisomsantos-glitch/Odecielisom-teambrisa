@@ -118,7 +118,7 @@ def main():
             
             st.markdown("---")
             
-            # Gráficos de Gestão
+            # Gráficos de Gestão (Barras)
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
@@ -129,8 +129,34 @@ def main():
                 st.subheader("Vendas por Produto")
                 st.bar_chart(df_vendas, x='Produto', y='Valor')
 
-            st.subheader("Base de Dados Completa")
-            st.dataframe(df_vendas, use_container_width=True)
+            st.markdown("---")
+
+            # --- AQUI ESTÁ A MUDANÇA (HISTÓRICO + GRÁFICO DE LINHA) ---
+            # Dividimos a tela em duas colunas: Tabela (1 parte) e Gráfico (2 partes)
+            col_hist, col_linha = st.columns([1, 2])
+
+            with col_hist:
+                st.subheader("Histórico Recente")
+                # Mostra apenas as colunas principais para caber no espaço
+                st.dataframe(df_vendas[['Data', 'Vendedor', 'Valor']].head(10), use_container_width=True)
+
+            with col_linha:
+                st.subheader("Tendência de Vendas (Linha do Tempo)")
+                
+                # 1. Tratamento de Data para o gráfico funcionar
+                try:
+                    # Cria uma cópia para não bagunçar o dataframe original
+                    df_chart = df_vendas.copy()
+                    df_chart['Data_Clean'] = pd.to_datetime(df_chart['Data'], format='%d/%m/%Y', errors='coerce')
+                    
+                    # 2. Agrupa por data e soma os valores
+                    dados_tendencia = df_chart.dropna(subset=['Data_Clean']).groupby('Data_Clean')['Valor'].sum()
+                    
+                    # 3. Exibe o gráfico de linhas
+                    st.line_chart(dados_tendencia)
+                except Exception as e:
+                    st.warning("Não foi possível gerar o gráfico de linha. Verifique o formato das datas na planilha (DD/MM/AAAA).")
+
         else:
             st.warning("Ainda não há vendas registradas no sistema.")
 
