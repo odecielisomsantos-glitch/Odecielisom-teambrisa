@@ -7,9 +7,19 @@ from google.oauth2.service_account import Credentials
 st.set_page_config(page_title="Sistema TeamBrisa", layout="wide")
 
 # --- CONEXÃO GOOGLE SHEETS ---
+# --- SUBSTIUA A FUNÇÃO 'conectar_google_sheets' INTEIRA POR ESTA ---
 def conectar_google_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    
+    # --- A CORREÇÃO MÁGICA ESTÁ AQUI EMBAIXO ---
+    # 1. Transformamos os segredos em um dicionário que podemos mexer
+    credenciais_info = dict(st.secrets["gcp_service_account"])
+    
+    # 2. Arrumamos os "enters" (\n) da chave privada manualmente
+    credenciais_info["private_key"] = credenciais_info["private_key"].replace("\\n", "\n")
+    
+    # 3. Usamos as credenciais já corrigidas
+    credentials = Credentials.from_service_account_info(credenciais_info, scopes=scopes)
     gc = gspread.authorize(credentials)
     return gc
 
