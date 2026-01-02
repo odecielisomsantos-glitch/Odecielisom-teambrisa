@@ -118,44 +118,45 @@ def main():
             
             st.markdown("---")
             
-            # Gráficos de Gestão (Barras)
-            col_g1, col_g2 = st.columns(2)
+            # --- LAYOUT PRINCIPAL ---
+            # Coluna G (Grande) na esquerda, Coluna T (Tabela) na direita
+            col_g, col_t = st.columns([2, 1])
             
-            with col_g1:
-                st.subheader("Performance por Vendedor")
-                st.bar_chart(df_vendas, x='Vendedor', y='Valor')
-            
-            with col_g2:
+            # Lado Esquerdo: Gráfico de Barras
+            with col_g:
                 st.subheader("Vendas por Produto")
                 st.bar_chart(df_vendas, x='Produto', y='Valor')
-
-            st.markdown("---")
-
-            # --- AQUI ESTÁ A MUDANÇA (HISTÓRICO + GRÁFICO DE LINHA) ---
-            # Dividimos a tela em duas colunas: Tabela (1 parte) e Gráfico (2 partes)
-            col_hist, col_linha = st.columns([1, 2])
-
-            with col_hist:
+            
+            # Lado Direito: Tabela em cima, Gráfico de Linha em baixo
+            with col_t:
                 st.subheader("Histórico Recente")
-                # Mostra apenas as colunas principais para caber no espaço
-                st.dataframe(df_vendas[['Data', 'Vendedor', 'Valor']].head(10), use_container_width=True)
+                # Mostra apenas as 5 últimas vendas para economizar espaço
+                st.dataframe(df_vendas[['Data', 'Vendedor', 'Valor']].head(5), use_container_width=True)
 
-            with col_linha:
-                st.subheader("Tendência de Vendas (Linha do Tempo)")
+                st.markdown("---")
+                st.subheader("Tendência (Evolução)")
                 
-                # 1. Tratamento de Data para o gráfico funcionar
+                # --- GRÁFICO DE LINHAS NOVO ---
                 try:
-                    # Cria uma cópia para não bagunçar o dataframe original
+                    # 1. Cria cópia e arruma a data
                     df_chart = df_vendas.copy()
                     df_chart['Data_Clean'] = pd.to_datetime(df_chart['Data'], format='%d/%m/%Y', errors='coerce')
                     
-                    # 2. Agrupa por data e soma os valores
+                    # 2. Agrupa por dia e soma
                     dados_tendencia = df_chart.dropna(subset=['Data_Clean']).groupby('Data_Clean')['Valor'].sum()
                     
-                    # 3. Exibe o gráfico de linhas
-                    st.line_chart(dados_tendencia)
+                    # 3. Exibe o gráfico se houver dados
+                    if not dados_tendencia.empty:
+                        st.line_chart(dados_tendencia)
+                    else:
+                        st.info("Cadastre mais vendas em dias diferentes para ver a linha.")
                 except Exception as e:
-                    st.warning("Não foi possível gerar o gráfico de linha. Verifique o formato das datas na planilha (DD/MM/AAAA).")
+                    st.warning("Erro ao gerar gráfico de tendência.")
+
+            # Base Completa (Expansível no final)
+            st.markdown("---")
+            with st.expander("Ver Base de Dados Completa"):
+                st.dataframe(df_vendas, use_container_width=True)
 
         else:
             st.warning("Ainda não há vendas registradas no sistema.")
@@ -190,13 +191,12 @@ def main():
                     
                     if salvar_venda(nova_venda):
                         st.success(f"Venda para {cliente} registrada com sucesso!")
-                        st.rerun() # Atualiza a página para mostrar na tabela abaixo
+                        st.rerun() # Atualiza a página
 
         # --- TABELA FILTRADA (SÓ AS VENDAS DELE) ---
         st.markdown("---")
         st.subheader("Minhas Vendas Recentes")
         
-        # Filtra apenas as linhas onde a coluna 'Vendedor' é igual ao usuário logado
         minhas_vendas = df_vendas[df_vendas['Vendedor'] == st.session_state['usuario']]
         
         if not minhas_vendas.empty:
