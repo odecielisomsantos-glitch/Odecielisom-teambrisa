@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+from streamlit_option_menu import option_menu # Importamos a biblioteca nova
 
 # --- 1. CONFIGURAÇÃO ---
-st.set_page_config(page_title="Sistema TeamBrisa", layout="wide")
+st.set_page_config(page_title="Sistema TeamBrisa", layout="wide", page_icon="☁️")
 
 # --- 2. CONEXÃO E BANCO DE DADOS ---
 def conectar_google_sheets():
@@ -21,19 +22,14 @@ def conectar_google_sheets():
 def carregar_dados(aba):
     try:
         gc = conectar_google_sheets()
-        sh = gc.open("Sistema_Vendas") # Nome da sua planilha
+        sh = gc.open("Sistema_Vendas") 
         worksheet = sh.worksheet(aba)
         dados = worksheet.get_all_records()
         return pd.DataFrame(dados)
     except Exception as e:
-        # Retorna vazio se der erro, para não travar o site
         return pd.DataFrame()
 
 def salvar_venda(venda):
-    """
-    Recebe uma lista com os dados da venda e salva na última linha da planilha.
-    Ordem esperada: [Data, Vendedor, Cliente, Produto, Valor, Status]
-    """
     try:
         gc = conectar_google_sheets()
         sh = gc.open("Sistema_Vendas")
@@ -48,27 +44,25 @@ def salvar_venda(venda):
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
         st.title("🔒 Acesso TeamBrisa")
         st.markdown("---")
         usuario = st.text_input("Usuário")
         senha = st.text_input("Senha", type="password")
         
-        if st.button("Entrar no Sistema"):
+        if st.button("Entrar no Sistema", use_container_width=True):
             with st.spinner("Validando credenciais..."):
                 df_users = carregar_dados("Usuarios")
                 
                 if not df_users.empty:
-                    # Garante que a senha seja lida como texto para comparar corretamente
                     df_users['Senha'] = df_users['Senha'].astype(str)
-                    
-                    # Procura o usuário e senha digitados
                     user = df_users[(df_users['Usuario'] == usuario) & (df_users['Senha'] == str(senha))]
                     
                     if not user.empty:
                         st.session_state['logado'] = True
                         st.session_state['usuario'] = user.iloc[0]['Nome']
                         st.session_state['funcao'] = user.iloc[0]['Funcao']
-                        st.rerun() # Recarrega a página para entrar
+                        st.rerun() 
                     else:
                         st.error("Usuário ou senha incorretos.")
                 else:
@@ -76,135 +70,142 @@ def login():
 
 # --- 4. PAINEL PRINCIPAL (CÉREBRO DO SISTEMA) ---
 def main():
-    # --- BARRA LATERAL (IDENTIDADE) ---
-    st.sidebar.title(f"👤 {st.session_state['usuario']}")
-    
-    # Padroniza o cargo para letras minúsculas para facilitar a comparação
-    cargo_atual = st.session_state['funcao'].lower() 
-    st.sidebar.markdown(f"**Perfil:** {cargo_atual.upper()}")
-    st.sidebar.markdown("---")
-    
-    if st.sidebar.button("Sair"):
-        st.session_state['logado'] = False
-        st.rerun()
-
-    # --- CARREGAR DADOS ---
+    # --- A. CARREGAMENTO E LIMPEZA ---
     df_vendas = carregar_dados("Vendas")
     
-    # Cria estrutura vazia se a planilha estiver zerada (para não dar erro)
     if df_vendas.empty:
         df_vendas = pd.DataFrame(columns=["Data", "Vendedor", "Cliente", "Produto", "Valor", "Status"])
+    else:
+        df_vendas.columns = df_vendas.columns.str.strip()
 
-    # Tratamento numérico (Remove R$, pontos e troca vírgula por ponto)
-    if 'Valor' in df_vendas.columns and not df_vendas.empty:
+    if 'Valor' in df_vendas.columns:
         df_vendas['Valor'] = df_vendas['Valor'].astype(str).str.replace('R$', '', regex=False)
         df_vendas['Valor'] = df_vendas['Valor'].str.replace('.', '', regex=False)
         df_vendas['Valor'] = df_vendas['Valor'].str.replace(',', '.', regex=False)
-        df_vendas['Valor'] = pd.to_numeric(df_vendas['Valor'])
+        df_vendas['Valor'] = pd.to_numeric(df_vendas['Valor'], errors='coerce').fillna(0.0)
 
-    # --- LÓGICA DE PERMISSÃO (ADMIN vs VENDEDOR) ---
-    
-    # >> CENÁRIO A: GERÊNCIA (ADMIN) <<
-    if cargo_atual == 'admin':
-        st.title("📊 Painel da Diretoria")
-        st.info("Visão Gerencial: Acesso a todos os dados.")
+    # --- B. BARRA LATERAL (MENU MODERNO) ---
+    with st.sidebar:
+        # Título Personalizado
+        st.markdown(f"<h2 style='text-align: center;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center;'>Olá, <b>{st.session_state['usuario']}</b></p>", unsafe_allow_html=True)
+        st.markdown("---")
+
+        cargo = st.session_state['funcao'].lower()
         
-        if not df_vendas.empty:
-            # Métricas Globais
-            total = df_vendas['Valor'].sum()
-            col1, col2 = st.columns(2)
-            col1.metric("Faturamento Total", f"R$ {total:,.2f}")
-            col2.metric("Total de Transações", len(df_vendas))
+        # DEFINIÇÃO DOS BOTÕES DO MENU
+        # Se for admin, tem 3 opções. Se for vendedor, tem 2.
+        if cargo == 'admin':
+            opcoes = ["Dashboard", "Nova Venda", "Banco de Dados"]
+            icones = ["graph-up", "cart-plus", "table"] # Ícones do Bootstrap
+        else:
+            opcoes = ["Dashboard", "Nova Venda"]
+            icones = ["graph-up", "cart-plus"]
+
+        # O COMPONENTE DE MENU VISUAL
+        escolha = option_menu(
+            menu_title=None,          # Esconde o título padrão
+            options=opcoes,           # As opções que definimos acima
+            icons=icones,             # Os ícones
+            menu_icon="cast",         # Ícone do menu
+            default_index=0,          # Começa no primeiro item
+            styles={
+                "container": {"padding": "0!important", "background-color": "#f0f2f6"},
+                "icon": {"color": "orange", "font-size": "20px"}, 
+                "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#eee"},
+                "nav-link-selected": {"background-color": "#2C3E50"}, # Cor quando selecionado
+            }
+        )
+        
+        # Filtros (Só Admin e só na tela de Dashboard)
+        st.markdown("---")
+        filtro_vendedor = "Todos"
+        if escolha == "Dashboard" and cargo == 'admin':
+            st.markdown("🔍 **Filtros Avançados**")
+            vendedores = ["Todos"] + list(df_vendas['Vendedor'].unique())
+            filtro_vendedor = st.selectbox("Vendedor:", vendedores)
+
+        if st.button("Sair", use_container_width=True):
+            st.session_state['logado'] = False
+            st.rerun()
+
+    # --- C. LÓGICA DAS TELAS ---
+    
+    # 1. TELA DASHBOARD
+    if escolha == "Dashboard":
+        st.title("📊 Painel de Controle")
+        
+        df_filtrado = df_vendas.copy()
+        if filtro_vendedor != "Todos":
+            df_filtrado = df_filtrado[df_filtrado['Vendedor'] == filtro_vendedor]
+        
+        if cargo != 'admin':
+            df_filtrado = df_filtrado[df_filtrado['Vendedor'] == st.session_state['usuario']]
+
+        if not df_filtrado.empty:
+            total = df_filtrado['Valor'].sum()
+            
+            c1, c2 = st.columns(2)
+            c1.metric("Faturamento Total", f"R$ {total:,.2f}")
+            c2.metric("Vendas Realizadas", len(df_filtrado))
             
             st.markdown("---")
             
-            # --- LAYOUT PRINCIPAL ---
-            # Coluna G (Grande) na esquerda, Coluna T (Tabela) na direita
             col_g, col_t = st.columns([2, 1])
             
-            # Lado Esquerdo: Gráfico de Barras
             with col_g:
                 st.subheader("Vendas por Produto")
-                st.bar_chart(df_vendas, x='Produto', y='Valor')
+                dados_prod = df_filtrado.groupby("Produto")["Valor"].sum()
+                st.bar_chart(dados_prod)
             
-            # Lado Direito: Tabela em cima, Gráfico de Linha em baixo
             with col_t:
-                st.subheader("Histórico Recente")
-                # Mostra apenas as 5 últimas vendas para economizar espaço
-                st.dataframe(df_vendas[['Data', 'Vendedor', 'Valor']].head(5), use_container_width=True)
-
+                st.subheader("Histórico")
+                st.dataframe(df_filtrado[['Data', 'Cliente', 'Valor']].head(5), use_container_width=True)
+                
                 st.markdown("---")
-                st.subheader("Tendência (Evolução)")
-                
-                # --- GRÁFICO DE LINHAS NOVO ---
+                st.subheader("Tendência")
                 try:
-                    # 1. Cria cópia e arruma a data
-                    df_chart = df_vendas.copy()
+                    df_chart = df_filtrado.copy()
                     df_chart['Data_Clean'] = pd.to_datetime(df_chart['Data'], format='%d/%m/%Y', errors='coerce')
-                    
-                    # 2. Agrupa por dia e soma
-                    dados_tendencia = df_chart.dropna(subset=['Data_Clean']).groupby('Data_Clean')['Valor'].sum()
-                    
-                    # 3. Exibe o gráfico se houver dados
-                    if not dados_tendencia.empty:
-                        st.line_chart(dados_tendencia)
+                    grafico_linha = df_chart.groupby('Data_Clean')['Valor'].sum()
+                    if not grafico_linha.empty:
+                        st.line_chart(grafico_linha)
                     else:
-                        st.info("Cadastre mais vendas em dias diferentes para ver a linha.")
-                except Exception as e:
-                    st.warning("Erro ao gerar gráfico de tendência.")
-
-            # Base Completa (Expansível no final)
-            st.markdown("---")
-            with st.expander("Ver Base de Dados Completa"):
-                st.dataframe(df_vendas, use_container_width=True)
+                        st.info("Sem dados temporais.")
+                except:
+                    st.warning("Erro no gráfico de linha.")
 
         else:
-            st.warning("Ainda não há vendas registradas no sistema.")
+            st.warning("Nenhum dado encontrado.")
 
-    # >> CENÁRIO B: OPERAÇÃO (VENDEDORES) <<
-    else:
-        st.title("📝 Área do Vendedor")
+    # 2. TELA NOVA VENDA
+    elif escolha == "Nova Venda":
+        st.title("📝 Registrar Nova Venda")
         
-        # --- FORMULÁRIO DE CADASTRO ---
-        with st.expander("➕ REGISTRAR NOVA VENDA", expanded=True):
+        with st.container(border=True):
             with st.form("form_venda"):
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    data = st.date_input("Data da Venda")
-                    cliente = st.text_input("Nome do Cliente")
-                with col_b:
-                    produto = st.selectbox("Produto/Serviço", ["Consultoria", "Sistema", "Manutenção", "Outros"])
-                    valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
+                c1, c2 = st.columns(2)
+                data = c1.date_input("Data")
+                cliente = c1.text_input("Cliente")
+                produto = c2.selectbox("Produto", ["Consultoria", "Sistema", "Manutenção", "Outros"])
+                valor = c2.number_input("Valor (R$)", min_value=0.0, format="%.2f")
                 
-                enviar = st.form_submit_button("💾 Salvar Venda")
-                
-                if enviar:
-                    # Monta a linha exata que vai para o Excel
-                    nova_venda = [
-                        data.strftime("%d/%m/%Y"),     # Coluna A: Data
-                        st.session_state['usuario'],   # Coluna B: Vendedor (Automático)
-                        cliente,                       # Coluna C: Cliente
-                        produto,                       # Coluna D: Produto
-                        valor,                         # Coluna E: Valor
-                        "Pendente"                     # Coluna F: Status
+                if st.form_submit_button("💾 Confirmar Venda", use_container_width=True):
+                    nova = [
+                        data.strftime("%d/%m/%Y"),
+                        st.session_state['usuario'],
+                        cliente,
+                        produto,
+                        float(valor),
+                        "Pendente"
                     ]
-                    
-                    if salvar_venda(nova_venda):
-                        st.success(f"Venda para {cliente} registrada com sucesso!")
-                        st.rerun() # Atualiza a página
-
-        # --- TABELA FILTRADA (SÓ AS VENDAS DELE) ---
-        st.markdown("---")
-        st.subheader("Minhas Vendas Recentes")
-        
-        minhas_vendas = df_vendas[df_vendas['Vendedor'] == st.session_state['usuario']]
-        
-        if not minhas_vendas.empty:
-            total_meu = minhas_vendas['Valor'].sum()
-            st.metric("Meu Faturamento Acumulado", f"R$ {total_meu:,.2f}")
-            st.dataframe(minhas_vendas, use_container_width=True)
-        else:
-            st.info("Você ainda não registrou nenhuma venda.")
+                    if salvar_venda(nova):
+                        st.success("Sucesso!")
+    
+    # 3. TELA BANCO DE DADOS
+    elif escolha == "Banco de Dados":
+        st.title("📂 Dados Brutos")
+        st.dataframe(df_vendas, use_container_width=True)
 
 # --- 5. CONTROLE DE FLUXO ---
 if 'logado' not in st.session_state:
