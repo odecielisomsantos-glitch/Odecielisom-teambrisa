@@ -100,39 +100,56 @@ def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_ra
         df = df.sort_values(by=titulo_coluna, ascending=False)
     return df
 
+# Função auxiliar para definir cor baseada na nota (Lógica do Ranking Geral)
+def definir_cor_pela_nota(valor):
+    if valor >= 90: return '#00FF7F' # Verde Neon (N3)
+    elif valor >= 70: return '#FFD700' # Amarelo (N2)
+    else: return '#FF4B4B' # Vermelho (N1)
+
 # --- 4. FUNÇÃO DE VISUALIZAÇÃO (GRÁFICO DE BARRAS RANKING) ---
-def renderizar_ranking_visual(titulo, df, col_val, cor_hex, altura_base=250):
-    """Cria um gráfico de barras horizontais que parece uma tabela, mas com controle total de cor."""
+def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
+    """
+    Cria o gráfico de barras. 
+    cor_input: Pode ser uma string HEX (ex: '#00FF7F') OU o nome de uma coluna do DF para cor variável.
+    """
     st.markdown(f"#### {titulo}")
     
     if not df.empty:
-        # Altura dinâmica baseada na quantidade de itens para não ficar espremido
         altura_dinamica = max(altura_base, len(df) * 35)
         
-        fig = px.bar(
-            df, 
-            y="Colaborador", 
-            x=col_val, 
-            text=col_val, 
-            orientation='h',
-            color_discrete_sequence=[cor_hex] # A COR MÁGICA ENTRA AQUI
-        )
+        # Verifica se 'cor_input' é uma cor fixa ou uma coluna dinâmica
+        if cor_input.startswith('#'):
+            # Cor fixa
+            fig = px.bar(
+                df, y="Colaborador", x=col_val, text=col_val, orientation='h',
+                color_discrete_sequence=[cor_input] 
+            )
+        else:
+            # Cor dinâmica (Baseada em coluna)
+            fig = px.bar(
+                df, y="Colaborador", x=col_val, text=col_val, orientation='h',
+                color=cor_input, # Usa a coluna de cores
+                color_discrete_map="identity" # Usa as cores hex reais da coluna
+            )
         
         fig.update_traces(
-            texttemplate='%{text:.1f}%', # Mostra o valor na barra (ex: 98.5%)
-            textposition='inside',       # Texto dentro da barra se couber
-            insidetextanchor='start',    # Alinhado à esquerda dentro da barra
+            texttemplate='<b>%{text:.1f}%</b>', # NEGRITO
+            textposition='inside',
+            insidetextanchor='start',
+            textfont_size=18, # <<< FONTE MAIOR AQUI
+            textfont_color='black' # Contraste com o neon/amarelo
         )
         
         fig.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             font_color='#E6EDF3',
-            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 105]), # Remove eixo X sujo
-            yaxis=dict(autorange="reversed", title=None), # Inverte para o 1º ficar no topo
+            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), 
+            yaxis=dict(autorange="reversed", title=None),
             margin=dict(l=0, r=0, t=0, b=0),
             height=altura_dinamica,
-            dragmode=False
+            dragmode=False,
+            showlegend=False # Esconde legenda para ficar limpo
         )
         
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -163,6 +180,10 @@ def main():
     
     # Processa Rankings
     df_tam = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
+    # Aplica lógica de cores SEMÁFORO no Ranking Geral
+    if not df_tam.empty:
+        df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
+
     df_n3 = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2 = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
     df_n1 = processar_tabela_ranking(dados_brutos, 11, 12, range(1, 25), 'Nível 1')
@@ -181,9 +202,15 @@ def main():
             st.subheader("🔍 Filtros (Gráfico)")
             lista_ops = sorted([op for op in df_grafico['Operador'].unique() if len(op) > 2])
             filtro_op = st.selectbox("👤 Operador:", lista_ops)
+            
+            # ADICIONA OPÇÃO "GERAL" NA LISTA DE MÉTRICAS
             lista_met = sorted([m for m in df_grafico['Metrica'].unique() if len(m) > 1])
-            idx_meta = lista_met.index('Meta') if 'Meta' in lista_met else 0
-            filtro_met = st.selectbox("🎯 Métrica:", lista_met, index=idx_meta)
+            if "Meta" in lista_met: # Traz Meta pro topo se existir
+                lista_met.remove("Meta")
+                lista_met.insert(0, "Meta")
+            lista_met.insert(0, "Geral") # Insere Geral como primeira opção
+            
+            filtro_met = st.selectbox("🎯 Métrica:", lista_met, index=0)
         else:
             filtro_op, filtro_met = None, None
             
@@ -205,16 +232,35 @@ def main():
         # >>> GRÁFICO EVOLUÇÃO (ESQUERDA) <<<
         with col_esq:
             st.markdown(f"### 📈 Evolução Mensal")
+            
             if filtro_op and filtro_met and not df_grafico.empty:
-                df_f = df_grafico[(df_grafico['Operador'] == filtro_op) & (df_grafico['Metrica'] == filtro_met)]
+                # Lógica para "Geral" vs "Métrica Específica"
+                if filtro_met == "Geral":
+                    # Pega TODAS as métricas do operador
+                    df_f = df_grafico[df_grafico['Operador'] == filtro_op]
+                    cor_linha = 'Metrica' # Plotly define cores automáticas diferentes
+                    titulo_legenda = True
+                else:
+                    # Pega apenas UMA métrica
+                    df_f = df_grafico[(df_grafico['Operador'] == filtro_op) & (df_grafico['Metrica'] == filtro_met)]
+                    cor_linha = None # Usaremos cor fixa verde
+                    titulo_legenda = False
+
                 if not df_f.empty:
                     cols_datas = list(df_grafico.columns[2:])
                     df_long = pd.melt(df_f, id_vars=['Operador', 'Metrica'], value_vars=cols_datas, var_name='Data', value_name='ValorRaw')
                     df_long['Performance'] = df_long['ValorRaw'].apply(tratar_porcentagem)
                     
-                    fig = px.line(df_long, x='Data', y='Performance', markers=True)
-                    # VERDE NEON (#00FF7F)
-                    fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
+                    if filtro_met == "Geral":
+                        # Gráfico MULTICOLORIDO
+                        fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
+                        fig.update_layout(legend=dict(orientation="h", y=1.1, title=None))
+                    else:
+                        # Gráfico VERDE NEON (Único)
+                        fig = px.line(df_long, x='Data', y='Performance', markers=True)
+                        fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
+
+                    # Layout Comum
                     fig.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#E6EDF3',
                         yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
@@ -227,18 +273,19 @@ def main():
 
         # >>> RANKINGS COLORIDOS (DIREITA) <<<
         with col_dir:
-            # 1. RANKING GERAL (TAM) -> VERDE NEON
-            renderizar_ranking_visual("🏆 Ranking Geral (TAM)", df_tam, "TAM", "#00FF7F")
+            # 1. RANKING GERAL (COR DINÂMICA SEMÁFORO)
+            # Passamos a coluna 'Cor_Dinamica' que criamos lá em cima
+            renderizar_ranking_visual("🏆 Ranking Geral (TAM)", df_tam, "TAM", "Cor_Dinamica")
             
             st.markdown("---")
             
             # 2. NÍVEL 3 -> VERDE NEON
             renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
             
-            # 3. NÍVEL 2 -> AMARELO OURO (#FFD700)
+            # 3. NÍVEL 2 -> AMARELO OURO
             renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
             
-            # 4. NÍVEL 1 -> VERMELHO ALERTA (#FF4B4B)
+            # 4. NÍVEL 1 -> VERMELHO ALERTA
             renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
 # --- INICIALIZAÇÃO ---
