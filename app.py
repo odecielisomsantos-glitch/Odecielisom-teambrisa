@@ -5,48 +5,43 @@ import plotly.express as px
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 
-# --- 1. CONFIGURAÇÃO VISUAL (DARK MODE PROFISSIONAL) ---
-st.set_page_config(
-    page_title="Painel Tático TeamBrisa", 
-    layout="wide", 
-    page_icon="☁️",
-    initial_sidebar_state="expanded"
-)
+# --- 1. CONFIGURAÇÃO VISUAL ---
+st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-    /* Fundo Dark Profundo */
     .stApp { background-color: #0E1117; color: #E6EDF3; }
     [data-testid="stSidebar"] { background-color: #161B22; border-right: 1px solid #30363D; }
-    
-    /* Tipografia */
     h1, h2, h3, h4 { color: #FAFAFA !important; font-family: 'Segoe UI', sans-serif; font-weight: 600; }
-    p, label { color: #C9D1D9; }
-    
-    /* Cartões de KPI (Metrics) */
-    div[data-testid="stMetric"] {
-        background-color: #161B22;
-        border: 1px solid #30363D;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    div[data-testid="stMetricValue"] {
-        font-size: 28px !important;
-        font-weight: bold;
-        color: #00FF7F !important; /* Verde Neon para os números */
-    }
-    div[data-testid="stMetricLabel"] {
-        font-size: 16px !important;
-        color: #C9D1D9;
-    }
-    
-    /* Ajustes de Espaçamento */
+    div[data-testid="stMetric"] { background-color: #161B22; border: 1px solid #30363D; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold; color: #00FF7F !important; }
+    div[data-testid="stMetricLabel"] { font-size: 16px !important; color: #C9D1D9; }
     .block-container { padding-top: 2rem; padding-bottom: 5rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO E DADOS ---
+# --- 2. CONFIGURAÇÃO DE USUÁRIOS (SISTEMA DE LOGIN) ---
+# DICA: O "nome_planilha" DEVE SER IDÊNTICO ao que está na coluna A da sua aba DADOS-DIA
+USUARIOS = {
+    "admin": {
+        "senha": "123", 
+        "nome_planilha": "Gestor Geral", 
+        "funcao": "admin"
+    },
+    "damiao": {
+        "senha": "123", 
+        "nome_planilha": "DAMIAO EMANUEL DE CARVALHO GOMES", 
+        "funcao": "colaborador"
+    },
+    "aluizio": {
+        "senha": "123", 
+        "nome_planilha": "ALUIZIO BEZERRA JUNIOR", 
+        "funcao": "colaborador"
+    },
+    # Adicione os outros colaboradores aqui...
+}
+
+# --- 3. CONEXÃO E DADOS ---
 
 @st.cache_resource
 def conectar_google_sheets():
@@ -69,7 +64,6 @@ def obter_dados_completos():
         return []
 
 def tratar_porcentagem(valor):
-    """Converte '100%' para 100.0 (float)."""
     if isinstance(valor, str):
         v = valor.replace('%', '').replace(',', '.').strip()
         if v == '' or v == '#N/A' or v == '-': return 0.0
@@ -77,7 +71,7 @@ def tratar_porcentagem(valor):
         except: return 0.0
     return valor
 
-# --- 3. PROCESSAMENTO ---
+# --- 4. PROCESSAMENTO ---
 
 def processar_matriz_grafico(todos_dados):
     INDICE_CABECALHO = 26 
@@ -123,7 +117,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' # Amarelo
     else: return '#FF4B4B' # Vermelho
 
-# --- 4. FUNÇÃO DE VISUALIZAÇÃO ---
+# --- 5. FUNÇÃO DE VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     
@@ -135,86 +129,116 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
         else:
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color=cor_input, color_discrete_map="identity")
         
-        fig.update_traces(
-            texttemplate='<b>%{text:.1f}%</b>', 
-            textposition='inside',
-            insidetextanchor='start',
-            textfont_size=18, 
-            textfont_color='black'
-        )
+        fig.update_traces(texttemplate='<b>%{text:.1f}%</b>', textposition='inside', insidetextanchor='start', textfont_size=18, textfont_color='black')
         
         fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#E6EDF3',
-            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), 
-            yaxis=dict(autorange="reversed", title=None),
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=altura_dinamica,
-            dragmode=False,
-            showlegend=False
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#E6EDF3',
+            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), yaxis=dict(autorange="reversed", title=None),
+            margin=dict(l=0, r=0, t=0, b=0), height=altura_dinamica, dragmode=False, showlegend=False
         )
-        
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     else:
         st.caption("Sem dados para exibir.")
 
-# --- 5. LOGIN ---
+# --- 6. LOGIN INTELIGENTE ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown("<h2 style='text-align: center;'>🔐 TeamBrisa</h2>", unsafe_allow_html=True)
-            usuario = st.text_input("Usuário")
-            senha = st.text_input("Senha", type="password")
+            st.markdown("<h2 style='text-align: center;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
+            usuario_input = st.text_input("Usuário")
+            senha_input = st.text_input("Senha", type="password")
+            
             if st.button("Entrar", use_container_width=True):
-                if usuario and senha: 
-                    st.session_state['logado'] = True
-                    st.session_state['usuario'] = "Gestor"
-                    st.rerun()
+                # Verifica se usuário existe no dicionário
+                if usuario_input in USUARIOS:
+                    dados_user = USUARIOS[usuario_input]
+                    if senha_input == dados_user['senha']:
+                        st.session_state['logado'] = True
+                        st.session_state['usuario_id'] = usuario_input
+                        st.session_state['nome_real'] = dados_user['nome_planilha']
+                        st.session_state['funcao'] = dados_user['funcao']
+                        st.rerun()
+                    else:
+                        st.error("Senha incorreta.")
+                else:
+                    st.error("Usuário não encontrado.")
 
-# --- 6. PAINEL PRINCIPAL ---
+# --- 7. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
-    df_grafico = processar_matriz_grafico(dados_brutos)
-    
-    # Processa Rankings
-    df_tam = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
+    # --- CARREGA TUDO (PARA CÁLCULO DE MÉDIAS DO TIME) ---
+    df_grafico_total = processar_matriz_grafico(dados_brutos)
+    df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
+    df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
+    df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
+    df_n1_total = processar_tabela_ranking(dados_brutos, 11, 12, range(1, 25), 'Nível 1')
+
+    # --- APLICA O FILTRO DE PERMISSÃO (O SEGREDO ESTÁ AQUI) ---
+    perfil = st.session_state['funcao']
+    nome_usuario = st.session_state['nome_real']
+
+    if perfil == 'admin':
+        # Admin vê tudo
+        df_grafico = df_grafico_total
+        df_tam = df_tam_total
+        df_n3 = df_n3_total
+        df_n2 = df_n2_total
+        df_n1 = df_n1_total
+    else:
+        # Colaborador vê SÓ os dados dele
+        df_grafico = df_grafico_total[df_grafico_total['Operador'] == nome_usuario]
+        df_tam = df_tam_total[df_tam_total['Colaborador'] == nome_usuario]
+        df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
+        df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
+        df_n1 = df_n1_total[df_n1_total['Colaborador'] == nome_usuario]
+
+    # Aplica cores ao TAM (seja ele completo ou filtrado)
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
-
-    df_n3 = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
-    df_n2 = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
-    df_n1 = processar_tabela_ranking(dados_brutos, 11, 12, range(1, 25), 'Nível 1')
 
     # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
+        # Mostra quem está logado
+        st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
+        
         escolha = option_menu(
             menu_title=None, options=["Painel Tático"], icons=["graph-up-arrow"], default_index=0,
             styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
         )
         st.markdown("<br>", unsafe_allow_html=True)
         
-        if not df_grafico.empty:
-            st.subheader("🔍 Filtros (Gráfico)")
-            lista_ops = sorted([op for op in df_grafico['Operador'].unique() if len(op) > 2])
-            filtro_op = st.selectbox("👤 Operador:", lista_ops)
-            
-            # Filtro Métrica com "Geral"
-            lista_met = sorted([m for m in df_grafico['Metrica'].unique() if len(m) > 1])
+        # --- FILTROS INTELIGENTES ---
+        st.subheader("🔍 Filtros")
+        
+        # Se for ADMIN, pode escolher qualquer operador
+        if perfil == 'admin':
+            if not df_grafico_total.empty:
+                lista_ops = sorted([op for op in df_grafico_total['Operador'].unique() if len(op) > 2])
+                filtro_op = st.selectbox("👤 Operador:", lista_ops)
+            else:
+                filtro_op = None
+        else:
+            # Se for COLABORADOR, o filtro é travado nele mesmo
+            st.markdown(f"**👤 Operador:** {nome_usuario}")
+            filtro_op = nome_usuario # Força a variável
+
+        # Filtro de Métrica (Livre para todos)
+        if not df_grafico_total.empty:
+            lista_met = sorted([m for m in df_grafico_total['Metrica'].unique() if len(m) > 1])
             if "Meta" in lista_met:
                 lista_met.remove("Meta")
                 lista_met.insert(0, "Meta")
             lista_met.insert(0, "Geral")
             filtro_met = st.selectbox("🎯 Métrica:", lista_met, index=0)
         else:
-            filtro_op, filtro_met = None, None
-            
+            filtro_met = None
+
         st.markdown("---")
         if st.button("Sair", use_container_width=True):
             st.session_state['logado'] = False
@@ -222,38 +246,38 @@ def main():
 
     # --- TELA ---
     if escolha == "Painel Tático":
-        # --- CABEÇALHO DE KPIs ---
         st.title("📊 Painel Tático")
         st.markdown("---")
         
+        # --- CÁLCULO DOS KPIs (SEMPRE BASEADO NO TIME TOTAL PARA REFERÊNCIA) ---
+        # Mesmo o colaborador quer saber a média do time para se comparar
         kpi1, kpi2, kpi3 = st.columns(3)
         
-        # Cálculo 1: Média Geral do Time (Baseado no TAM)
-        if not df_tam.empty:
-            media_time = df_tam['TAM'].mean()
-            melhor_op_nome = df_tam.iloc[0]['Colaborador']
-            melhor_op_valor = df_tam.iloc[0]['TAM']
+        if not df_tam_total.empty:
+            # Calcula média ignorando Zeros
+            media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
             
-            # --- CORREÇÃO: Conta apenas se > 0% ---
-            if not df_n1.empty:
-                qtd_nivel_1 = len(df_n1[df_n1['Nível 1'] > 0])
+            melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
+            melhor_op_valor = df_tam_total.iloc[0]['TAM']
+            
+            if not df_n1_total.empty:
+                qtd_nivel_1 = len(df_n1_total[df_n1_total['Nível 1'] > 0])
             else:
                 qtd_nivel_1 = 0
-            # --------------------------------------
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
 
-        kpi1.metric("🎯 Média Geral do Time", f"{media_time:.1f}%")
+        kpi1.metric("🎯 Média do Time (Ref.)", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        kpi3.metric("🚨 Zona de Atenção (Nível 1)", f"{qtd_nivel_1} Operadores", delta_color="inverse")
+        kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("---")
-        st.markdown(f"**Visão Detalhada:** {filtro_op} | **Métrica:** {filtro_met}")
+        st.markdown(f"**Visão:** {filtro_op}")
         
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
-        # >>> GRÁFICO EVOLUÇÃO (ESQUERDA) <<<
+        # >>> GRÁFICO (FILTRADO PELA PERMISSÃO) <<<
         with col_esq:
             st.markdown(f"### 📈 Evolução Mensal")
             
@@ -283,11 +307,13 @@ def main():
                     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#30363D')
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Sem dados gráficos.")
+                    st.info("Sem dados para exibir.")
 
-        # >>> RANKINGS (DIREITA) <<<
+        # >>> RANKINGS (FILTRADO PELA PERMISSÃO) <<<
         with col_dir:
-            renderizar_ranking_visual("🏆 Ranking Geral (TAM)", df_tam, "TAM", "Cor_Dinamica")
+            # Se for colaborador, ele verá apenas a barra dele (funciona como um card de performance)
+            # Se for admin, vê de todos
+            renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
             st.markdown("---")
             renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
             renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
