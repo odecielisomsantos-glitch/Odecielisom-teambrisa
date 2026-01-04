@@ -4,95 +4,77 @@ import gspread
 import plotly.express as px
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
+import time # Importado para gerar IDs únicos simples
 
-# --- 1. CONFIGURAÇÃO INICIAL E ESTADO ---
+# --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# Inicializa o estado do tema se não existir
-if 'tema' not in st.session_state:
-    st.session_state['tema'] = 'Escuro'
+# Inicializa variaveis de estado (Tema e Tarefas)
+if 'tema' not in st.session_state: st.session_state['tema'] = 'Escuro'
+if 'tarefas' not in st.session_state: st.session_state['tarefas'] = [] # Memória das tarefas
 
-# --- 2. LÓGICA DE TEMAS (CSS DINÂMICO) ---
+# --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
     tema = st.session_state['tema']
     
     if tema == 'Escuro':
-        # --- CORES DARK MODE (O que você já usava) ---
         bg_color = "#0E1117"
         sidebar_bg = "#161B22"
         text_color = "#E6EDF3"
         card_bg = "#161B22"
         border_color = "#30363D"
         metric_label = "#C9D1D9"
+        # Cores para o Kanban Dark
+        kanban_bg = "#0d1117"
+        card_task_bg = "#21262d"
         
-        # Variáveis para os Gráficos Plotly
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
         
     else:
-        # --- CORES LIGHT MODE (Novo) ---
         bg_color = "#FFFFFF"
         sidebar_bg = "#F0F2F6"
         text_color = "#31333F"
         card_bg = "#FFFFFF"
         border_color = "#E0E0E0"
         metric_label = "#555555"
+        # Cores para o Kanban Light
+        kanban_bg = "#F9F9F9"
+        card_task_bg = "#FFFFFF"
         
-        # Variáveis para os Gráficos Plotly (Light)
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
         st.session_state['chart_grid'] = '#E0E0E0'
 
-    # Aplica o CSS baseado na escolha
     st.markdown(f"""
     <style>
-        /* Fundo Principal */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-        
-        /* Barra Lateral */
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
-        
-        /* Tipografia */
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 600; }}
         p, label, span {{ color: {metric_label}; }}
         
-        /* Cartões de KPI (Metrics) */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg};
-            border: 1px solid {border_color};
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: {card_bg}; border: 1px solid {border_color};
+            padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }}
-        div[data-testid="stMetricValue"] {{
-            font-size: 28px !important;
-            font-weight: bold;
-            color: #00FF7F !important; /* Mantém o Verde Neon no número */
-        }}
-        div[data-testid="stMetricLabel"] {{
-            font-size: 16px !important;
-            color: {metric_label};
+        div[data-testid="stMetricValue"] {{ font-size: 28px !important; font-weight: bold; color: #00FF7F !important; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; color: {metric_label}; }}
+        
+        /* Estilo dos Cards de Tarefa */
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {{
+            /* Isso ajuda a estilizar containers aninhados se necessário */
         }}
         
-        /* Ajustes de Espaçamento */
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
         
-        /* Ajuste para inputs ficarem visíveis no modo claro */
-        .stSelectbox div[data-baseweb="select"] > div {{
-            background-color: {card_bg};
-            color: {text_color};
-            border-color: {border_color};
-        }}
-        .stTextInput input {{
-            background-color: {card_bg};
-            color: {text_color};
-            border-color: {border_color};
+        /* Ajuste inputs */
+        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input {{
+            background-color: {card_bg}; color: {text_color}; border-color: {border_color};
         }}
     </style>
     """, unsafe_allow_html=True)
 
-# Aplica o tema imediatamente
 aplicar_tema()
 
 # --- 3. CONFIGURAÇÃO DE USUÁRIOS ---
@@ -139,14 +121,12 @@ def processar_matriz_grafico(todos_dados):
         cabecalho = todos_dados[INDICE_CABECALHO]
         dados = todos_dados[INDICE_CABECALHO+1:]
         df = pd.DataFrame(dados)
-        
         novos_nomes = ['Operador', 'Metrica'] + cabecalho[2:]
         if len(df.columns) >= len(novos_nomes):
             df = df.iloc[:, :len(novos_nomes)]
             df.columns = novos_nomes
         else:
             df.columns = novos_nomes[:len(df.columns)]
-            
         df = df[df['Operador'].str.strip() != ""]
         return df
     return pd.DataFrame()
@@ -168,37 +148,29 @@ def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_ra
     return df
 
 def definir_cor_pela_nota(valor):
-    if valor >= 90: return '#00FF7F' # Verde Neon
-    elif valor >= 70: return '#FFD700' # Amarelo
-    else: return '#FF4B4B' # Vermelho
+    if valor >= 90: return '#00FF7F' 
+    elif valor >= 70: return '#FFD700' 
+    else: return '#FF4B4B'
 
-# --- 6. FUNÇÃO DE VISUALIZAÇÃO ---
+# --- 6. VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
         altura_dinamica = max(altura_base, len(df) * 35)
-        
         if cor_input.startswith('#'):
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color_discrete_sequence=[cor_input])
         else:
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color=cor_input, color_discrete_map="identity")
         
-        # Configuração visual usando as variáveis de tema
-        fig.update_traces(
-            texttemplate='<b>%{text:.1f}%</b>', textposition='inside', insidetextanchor='start', 
-            textfont_size=18, textfont_color='black'
-        )
+        fig.update_traces(texttemplate='<b>%{text:.1f}%</b>', textposition='inside', insidetextanchor='start', textfont_size=18, textfont_color='black')
         fig.update_layout(
-            paper_bgcolor=st.session_state['chart_bg'],
-            plot_bgcolor=st.session_state['chart_bg'],
-            font_color=st.session_state['chart_font'],
-            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), 
-            yaxis=dict(autorange="reversed", title=None),
+            paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), yaxis=dict(autorange="reversed", title=None),
             margin=dict(l=0, r=0, t=0, b=0), height=altura_dinamica, dragmode=False, showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     else:
-        st.caption("Sem dados para exibir.")
+        st.caption("Sem dados.")
 
 # --- 7. LOGIN ---
 def login():
@@ -223,7 +195,27 @@ def login():
                 else:
                     st.error("Usuário não encontrado.")
 
-# --- 8. PAINEL PRINCIPAL ---
+# --- 8. FUNÇÕES DE TAREFAS (NOVAS) ---
+def adicionar_tarefa(titulo, categoria, responsavel):
+    nova_tarefa = {
+        'id': int(time.time() * 1000), # ID único baseado no tempo
+        'titulo': titulo,
+        'categoria': categoria,
+        'responsavel': responsavel,
+        'status': 'Não Iniciado' # Status inicial padrão
+    }
+    st.session_state['tarefas'].append(nova_tarefa)
+
+def mover_tarefa(id_tarefa, novo_status):
+    for t in st.session_state['tarefas']:
+        if t['id'] == id_tarefa:
+            t['status'] = novo_status
+            break
+
+def excluir_tarefa(id_tarefa):
+    st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
+
+# --- 9. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
@@ -253,17 +245,16 @@ def main():
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
 
-    # --- BARRA LATERAL ATUALIZADA ---
+    # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
-        # === MENU ATUALIZADO COM TAREFAS E GERENCIAMENTO ===
         escolha = option_menu(
             menu_title=None, 
-            options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], # Ordem Nova
-            icons=["graph-up-arrow", "clock-history", "calendar-week", "list-check", "gear"], # Ícones Novos
+            options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], 
+            icons=["graph-up-arrow", "clock-history", "calendar-week", "list-check", "gear"], 
             default_index=0,
             styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
         )
@@ -296,7 +287,7 @@ def main():
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- CONTEÚDO DAS PÁGINAS ---
+    # --- PÁGINAS ---
     
     # 1. PAINEL TÁTICO
     if escolha == "Painel Tático":
@@ -346,16 +337,14 @@ def main():
                         fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
 
                     fig.update_layout(
-                        paper_bgcolor=st.session_state['chart_bg'], # Usa tema dinâmico
-                        plot_bgcolor=st.session_state['chart_bg'],  # Usa tema dinâmico
-                        font_color=st.session_state['chart_font'],  # Usa tema dinâmico
+                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                         yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
                         margin=dict(l=0, r=0, t=20, b=20), height=500
                     )
                     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Sem dados para exibir.")
+                    st.info("Sem dados.")
 
         with col_dir:
             renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
@@ -367,44 +356,116 @@ def main():
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
         st.markdown("---")
-        st.info("🚧 Módulo de Pausas em desenvolvimento.")
+        st.info("🚧 Em desenvolvimento.")
 
     elif escolha == "Calendário":
-        st.title("📅 Calendário da Equipe")
+        st.title("📅 Calendário")
         st.markdown("---")
-        st.info("🚧 Módulo de Calendário em desenvolvimento.")
+        st.info("🚧 Em desenvolvimento.")
 
-    # 4. PÁGINA TAREFAS (NOVA)
+    # 4. TAREFAS (KANBAN BOARD)
     elif escolha == "Tarefas":
-        st.title("✅ Gerenciador de Tarefas")
-        st.markdown("---")
-        st.info("🚧 Módulo de Tarefas em desenvolvimento.")
-        st.markdown("Aqui ficarão as checklists e tarefas diárias do time.")
-
-    # 5. PÁGINA GERENCIAMENTO (COM SELETOR DE TEMA)
-    elif escolha == "Gerenciamento":
-        st.title("⚙️ Gerenciamento do Sistema")
+        st.title("✅ Gerenciador de Tarefas (Kanban)")
         st.markdown("---")
         
-        # === CONFIGURAÇÃO DE APARÊNCIA ===
+        # --- ÁREA DE CRIAÇÃO ---
+        with st.expander("➕ Adicionar Nova Tarefa", expanded=False):
+            with st.form("form_tarefa"):
+                col_inp1, col_inp2 = st.columns([3, 1])
+                with col_inp1:
+                    novo_titulo = st.text_input("Descrição da Tarefa")
+                with col_inp2:
+                    nova_cat = st.selectbox("Categoria", ["Vendas", "Admin", "Reunião", "Pessoal", "Urgente"])
+                
+                enviou = st.form_submit_button("Criar Tarefa")
+                if enviou and novo_titulo:
+                    adicionar_tarefa(novo_titulo, nova_cat, nome_usuario)
+                    st.success("Tarefa criada!")
+                    st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- QUADRO KANBAN (3 COLUNAS) ---
+        col_nao, col_ini, col_conc = st.columns(3)
+        
+        # Filtra tarefas do usuário (ou todas se for admin, opcional)
+        # Aqui vou filtrar só as tarefas do usuário logado para privacidade
+        minhas_tarefas = [t for t in st.session_state['tarefas'] if t['responsavel'] == nome_usuario]
+
+        # --- COLUNA 1: NÃO INICIADO ---
+        with col_nao:
+            st.markdown(f"<div style='background-color:rgba(255, 75, 75, 0.1); padding:10px; border-radius:5px; border:1px solid #FF4B4B; text-align:center;'><b>🔴 Não Iniciado</b></div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            for tarefa in minhas_tarefas:
+                if tarefa['status'] == 'Não Iniciado':
+                    with st.container(border=True):
+                        st.markdown(f"**{tarefa['titulo']}**")
+                        st.caption(f"📂 {tarefa['categoria']}")
+                        
+                        # Botão para mover para frente
+                        if st.button("▶️ Iniciar", key=f"btn_ini_{tarefa['id']}", use_container_width=True):
+                            mover_tarefa(tarefa['id'], 'Iniciado')
+                            st.rerun()
+                        
+                        # Botão Excluir
+                        if st.button("🗑️", key=f"del_{tarefa['id']}", help="Excluir"):
+                            excluir_tarefa(tarefa['id'])
+                            st.rerun()
+
+        # --- COLUNA 2: INICIADO ---
+        with col_ini:
+            st.markdown(f"<div style='background-color:rgba(255, 215, 0, 0.1); padding:10px; border-radius:5px; border:1px solid #FFD700; text-align:center;'><b>🟡 Iniciado</b></div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            for tarefa in minhas_tarefas:
+                if tarefa['status'] == 'Iniciado':
+                    with st.container(border=True):
+                        st.markdown(f"**{tarefa['titulo']}**")
+                        st.caption(f"📂 {tarefa['categoria']}")
+                        
+                        # Botão para mover para frente
+                        if st.button("✅ Concluir", key=f"btn_conc_{tarefa['id']}", use_container_width=True):
+                            mover_tarefa(tarefa['id'], 'Concluído')
+                            st.rerun()
+                        
+                        # Botão para voltar
+                        if st.button("⏪ Voltar", key=f"btn_back_{tarefa['id']}"):
+                            mover_tarefa(tarefa['id'], 'Não Iniciado')
+                            st.rerun()
+
+        # --- COLUNA 3: CONCLUÍDO ---
+        with col_conc:
+            st.markdown(f"<div style='background-color:rgba(0, 255, 127, 0.1); padding:10px; border-radius:5px; border:1px solid #00FF7F; text-align:center;'><b>🟢 Concluído</b></div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            for tarefa in minhas_tarefas:
+                if tarefa['status'] == 'Concluído':
+                    with st.container(border=True):
+                        st.markdown(f"~~{tarefa['titulo']}~~") # Riscado
+                        st.caption(f"📂 {tarefa['categoria']}")
+                        
+                        if st.button("🗑️ Arquivar", key=f"arq_{tarefa['id']}", use_container_width=True):
+                            excluir_tarefa(tarefa['id'])
+                            st.rerun()
+                        
+                        # Se quiser voltar
+                        if st.button("⏪ Reabrir", key=f"reopen_{tarefa['id']}"):
+                            mover_tarefa(tarefa['id'], 'Iniciado')
+                            st.rerun()
+
+    # 5. GERENCIAMENTO
+    elif escolha == "Gerenciamento":
+        st.title("⚙️ Gerenciamento")
+        st.markdown("---")
         st.subheader("🎨 Aparência")
         
-        # Toggle para mudar o tema
         tema_atual = st.session_state['tema']
-        novo_tema = st.radio(
-            "Escolha o Tema do Painel:",
-            ["Escuro", "Claro"],
-            index=0 if tema_atual == "Escuro" else 1,
-            horizontal=True
-        )
+        novo_tema = st.radio("Tema:", ["Escuro", "Claro"], index=0 if tema_atual == "Escuro" else 1, horizontal=True)
         
-        # Se mudar o tema, atualiza o session_state e recarrega a página
         if novo_tema != tema_atual:
             st.session_state['tema'] = novo_tema
             st.rerun()
-
-        st.markdown("---")
-        st.info("Outras configurações administrativas aparecerão aqui.")
 
 # --- INICIALIZAÇÃO ---
 if 'logado' not in st.session_state: st.session_state['logado'] = False
