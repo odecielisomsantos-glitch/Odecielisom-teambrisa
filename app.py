@@ -20,8 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURAÇÃO DE USUÁRIOS (SISTEMA DE LOGIN) ---
-# DICA: O "nome_planilha" DEVE SER IDÊNTICO ao que está na coluna A da sua aba DADOS-DIA
+# --- 2. CONFIGURAÇÃO DE USUÁRIOS ---
 USUARIOS = {
     "admin": {
         "senha": "123", 
@@ -38,7 +37,7 @@ USUARIOS = {
         "nome_planilha": "ALUIZIO BEZERRA JUNIOR", 
         "funcao": "colaborador"
     },
-    # Adicione os outros colaboradores aqui...
+    # Adicione os outros aqui...
 }
 
 # --- 3. CONEXÃO E DADOS ---
@@ -140,7 +139,7 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     else:
         st.caption("Sem dados para exibir.")
 
-# --- 6. LOGIN INTELIGENTE ---
+# --- 6. LOGIN ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -151,7 +150,6 @@ def login():
             senha_input = st.text_input("Senha", type="password")
             
             if st.button("Entrar", use_container_width=True):
-                # Verifica se usuário existe no dicionário
                 if usuario_input in USUARIOS:
                     dados_user = USUARIOS[usuario_input]
                     if senha_input == dados_user['senha']:
@@ -170,93 +168,87 @@ def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
-    # --- CARREGA TUDO (PARA CÁLCULO DE MÉDIAS DO TIME) ---
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
     df_n1_total = processar_tabela_ranking(dados_brutos, 11, 12, range(1, 25), 'Nível 1')
 
-    # --- APLICA O FILTRO DE PERMISSÃO (O SEGREDO ESTÁ AQUI) ---
     perfil = st.session_state['funcao']
     nome_usuario = st.session_state['nome_real']
 
+    # Filtro de Permissão
     if perfil == 'admin':
-        # Admin vê tudo
         df_grafico = df_grafico_total
         df_tam = df_tam_total
         df_n3 = df_n3_total
         df_n2 = df_n2_total
         df_n1 = df_n1_total
     else:
-        # Colaborador vê SÓ os dados dele
         df_grafico = df_grafico_total[df_grafico_total['Operador'] == nome_usuario]
         df_tam = df_tam_total[df_tam_total['Colaborador'] == nome_usuario]
         df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
         df_n1 = df_n1_total[df_n1_total['Colaborador'] == nome_usuario]
 
-    # Aplica cores ao TAM (seja ele completo ou filtrado)
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
 
-    # --- BARRA LATERAL ---
+    # --- BARRA LATERAL ATUALIZADA ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
-        # Mostra quem está logado
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
+        # --- ATUALIZAÇÃO AQUI: NOVAS OPÇÕES ---
         escolha = option_menu(
-            menu_title=None, options=["Painel Tático"], icons=["graph-up-arrow"], default_index=0,
+            menu_title=None, 
+            options=["Painel Tático", "Pausas", "Calendário"],  # Novas opções
+            icons=["graph-up-arrow", "clock-history", "calendar-week"], # Novos ícones
+            default_index=0,
             styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
         )
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # --- FILTROS INTELIGENTES ---
-        st.subheader("🔍 Filtros")
-        
-        # Se for ADMIN, pode escolher qualquer operador
-        if perfil == 'admin':
-            if not df_grafico_total.empty:
-                lista_ops = sorted([op for op in df_grafico_total['Operador'].unique() if len(op) > 2])
-                filtro_op = st.selectbox("👤 Operador:", lista_ops)
+        # Filtros aparecem apenas na tela do Painel Tático
+        if escolha == "Painel Tático":
+            st.subheader("🔍 Filtros")
+            if perfil == 'admin':
+                if not df_grafico_total.empty:
+                    lista_ops = sorted([op for op in df_grafico_total['Operador'].unique() if len(op) > 2])
+                    filtro_op = st.selectbox("👤 Operador:", lista_ops)
+                else:
+                    filtro_op = None
             else:
-                filtro_op = None
-        else:
-            # Se for COLABORADOR, o filtro é travado nele mesmo
-            st.markdown(f"**👤 Operador:** {nome_usuario}")
-            filtro_op = nome_usuario # Força a variável
+                st.markdown(f"**👤 Operador:** {nome_usuario}")
+                filtro_op = nome_usuario 
 
-        # Filtro de Métrica (Livre para todos)
-        if not df_grafico_total.empty:
-            lista_met = sorted([m for m in df_grafico_total['Metrica'].unique() if len(m) > 1])
-            if "Meta" in lista_met:
-                lista_met.remove("Meta")
-                lista_met.insert(0, "Meta")
-            lista_met.insert(0, "Geral")
-            filtro_met = st.selectbox("🎯 Métrica:", lista_met, index=0)
-        else:
-            filtro_met = None
+            if not df_grafico_total.empty:
+                lista_met = sorted([m for m in df_grafico_total['Metrica'].unique() if len(m) > 1])
+                if "Meta" in lista_met:
+                    lista_met.remove("Meta")
+                    lista_met.insert(0, "Meta")
+                lista_met.insert(0, "Geral")
+                filtro_met = st.selectbox("🎯 Métrica:", lista_met, index=0)
+            else:
+                filtro_met = None
+            st.markdown("---")
 
-        st.markdown("---")
         if st.button("Sair", use_container_width=True):
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- TELA ---
+    # --- CONTEÚDO DAS PÁGINAS ---
+    
+    # 1. PÁGINA PAINEL TÁTICO
     if escolha == "Painel Tático":
         st.title("📊 Painel Tático")
         st.markdown("---")
         
-        # --- CÁLCULO DOS KPIs (SEMPRE BASEADO NO TIME TOTAL PARA REFERÊNCIA) ---
-        # Mesmo o colaborador quer saber a média do time para se comparar
         kpi1, kpi2, kpi3 = st.columns(3)
         
         if not df_tam_total.empty:
-            # Calcula média ignorando Zeros
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
-            
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
@@ -277,10 +269,8 @@ def main():
         
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
-        # >>> GRÁFICO (FILTRADO PELA PERMISSÃO) <<<
         with col_esq:
             st.markdown(f"### 📈 Evolução Mensal")
-            
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
                     df_f = df_grafico[df_grafico['Operador'] == filtro_op]
@@ -309,15 +299,26 @@ def main():
                 else:
                     st.info("Sem dados para exibir.")
 
-        # >>> RANKINGS (FILTRADO PELA PERMISSÃO) <<<
         with col_dir:
-            # Se for colaborador, ele verá apenas a barra dele (funciona como um card de performance)
-            # Se for admin, vê de todos
             renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
             st.markdown("---")
             renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
             renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
             renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
+
+    # 2. PÁGINA PAUSAS (PLACEHOLDER)
+    elif escolha == "Pausas":
+        st.title("⏸️ Controle de Pausas")
+        st.markdown("---")
+        st.info("🚧 Módulo de Pausas em desenvolvimento.")
+        st.markdown("Aqui você poderá registrar pausas, banheiro e almoço futuramente.")
+
+    # 3. PÁGINA CALENDÁRIO (PLACEHOLDER)
+    elif escolha == "Calendário":
+        st.title("📅 Calendário da Equipe")
+        st.markdown("---")
+        st.info("🚧 Módulo de Calendário em desenvolvimento.")
+        st.markdown("Aqui você verá escalas, feriados e eventos do time.")
 
 # --- INICIALIZAÇÃO ---
 if 'logado' not in st.session_state: st.session_state['logado'] = False
