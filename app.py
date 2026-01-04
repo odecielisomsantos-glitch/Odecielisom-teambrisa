@@ -234,12 +234,12 @@ def main():
             melhor_op_nome = df_tam.iloc[0]['Colaborador']
             melhor_op_valor = df_tam.iloc[0]['TAM']
             
-            # --- CORREÇÃO AQUI: Conta apenas se > 0% ---
+            # --- CORREÇÃO: Conta apenas se > 0% ---
             if not df_n1.empty:
                 qtd_nivel_1 = len(df_n1[df_n1['Nível 1'] > 0])
             else:
                 qtd_nivel_1 = 0
-            # -------------------------------------------
+            # --------------------------------------
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
@@ -249,3 +249,51 @@ def main():
         kpi3.metric("🚨 Zona de Atenção (Nível 1)", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("---")
+        st.markdown(f"**Visão Detalhada:** {filtro_op} | **Métrica:** {filtro_met}")
+        
+        col_esq, col_dir = st.columns([2, 1.2], gap="large")
+
+        # >>> GRÁFICO EVOLUÇÃO (ESQUERDA) <<<
+        with col_esq:
+            st.markdown(f"### 📈 Evolução Mensal")
+            
+            if filtro_op and filtro_met and not df_grafico.empty:
+                if filtro_met == "Geral":
+                    df_f = df_grafico[df_grafico['Operador'] == filtro_op]
+                else:
+                    df_f = df_grafico[(df_grafico['Operador'] == filtro_op) & (df_grafico['Metrica'] == filtro_met)]
+
+                if not df_f.empty:
+                    cols_datas = list(df_grafico.columns[2:])
+                    df_long = pd.melt(df_f, id_vars=['Operador', 'Metrica'], value_vars=cols_datas, var_name='Data', value_name='ValorRaw')
+                    df_long['Performance'] = df_long['ValorRaw'].apply(tratar_porcentagem)
+                    
+                    if filtro_met == "Geral":
+                        fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
+                        fig.update_layout(legend=dict(orientation="h", y=1.1, title=None))
+                    else:
+                        fig = px.line(df_long, x='Data', y='Performance', markers=True)
+                        fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
+
+                    fig.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#E6EDF3',
+                        yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
+                        margin=dict(l=0, r=0, t=20, b=20), height=500
+                    )
+                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#30363D')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Sem dados gráficos.")
+
+        # >>> RANKINGS (DIREITA) <<<
+        with col_dir:
+            renderizar_ranking_visual("🏆 Ranking Geral (TAM)", df_tam, "TAM", "Cor_Dinamica")
+            st.markdown("---")
+            renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
+            renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
+            renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
+
+# --- INICIALIZAÇÃO ---
+if 'logado' not in st.session_state: st.session_state['logado'] = False
+if not st.session_state['logado']: login()
+else: main()
