@@ -200,11 +200,11 @@ def main():
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
-        # --- ATUALIZAÇÃO AQUI: NOVAS OPÇÕES ---
+        # --- ATUALIZAÇÃO: NOVA OPÇÃO GERENCIAMENTO ---
         escolha = option_menu(
             menu_title=None, 
-            options=["Painel Tático", "Pausas", "Calendário"],  # Novas opções
-            icons=["graph-up-arrow", "clock-history", "calendar-week"], # Novos ícones
+            options=["Painel Tático", "Pausas", "Calendário", "Gerenciamento"],  # Adicionado
+            icons=["graph-up-arrow", "clock-history", "calendar-week", "gear"], # Adicionado ícone gear
             default_index=0,
             styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
         )
@@ -306,19 +306,26 @@ def main():
             renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
             renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-    # 2. PÁGINA PAUSAS (PLACEHOLDER)
+    # 2. PÁGINA PAUSAS
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
         st.markdown("---")
         st.info("🚧 Módulo de Pausas em desenvolvimento.")
         st.markdown("Aqui você poderá registrar pausas, banheiro e almoço futuramente.")
 
-    # 3. PÁGINA CALENDÁRIO (PLACEHOLDER)
+    # 3. PÁGINA CALENDÁRIO
     elif escolha == "Calendário":
         st.title("📅 Calendário da Equipe")
         st.markdown("---")
         st.info("🚧 Módulo de Calendário em desenvolvimento.")
         st.markdown("Aqui você verá escalas, feriados e eventos do time.")
+
+    # 4. PÁGINA GERENCIAMENTO (NOVA)
+    elif escolha == "Gerenciamento":
+        st.title("⚙️ Gerenciamento")
+        st.markdown("---")
+        st.info("🚧 Painel de Gestão em construção.")
+        st.markdown("Aqui vamos trabalhar as configurações avançadas do time e metas.")
 
 # --- INICIALIZAÇÃO ---
 if 'logado' not in st.session_state: st.session_state['logado'] = False
