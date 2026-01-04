@@ -1,18 +1,19 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import plotly.express as px
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Sistema TeamBrisa", layout="wide", page_icon="☁️")
+st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️")
 
-# --- 2. FUNÇÕES DE BANCO DE DADOS ---
+# --- 2. FUNÇÕES DE CONEXÃO E TRATAMENTO DE DADOS ---
 
+@st.cache_resource
 def conectar_google_sheets():
-    """Conecta ao Google Sheets usando as credenciais do Streamlit Secrets."""
+    """Conecta ao Google Sheets."""
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    
     credenciais_info = dict(st.secrets["gcp_service_account"])
     credenciais_info["private_key"] = credenciais_info["private_key"].replace("\\n", "\n")
     
@@ -20,253 +21,194 @@ def conectar_google_sheets():
     gc = gspread.authorize(credentials)
     return gc
 
-def carregar_dados(aba):
-    """Carrega todos os dados de uma aba específica."""
-    try:
-        gc = conectar_google_sheets()
-        sh = gc.open("Sistema_Vendas") 
-        worksheet = sh.worksheet(aba)
-        dados = worksheet.get_all_records()
-        return pd.DataFrame(dados)
-    except Exception:
-        return pd.DataFrame()
-
-def carregar_ranking():
-    """Busca o ranking específico na aba DADOS-DIA, intervalo F3:G25."""
+@st.cache_data(ttl=600)
+def carregar_matriz_dados():
+    """
+    Lê a aba DADOS-DIA focando no intervalo A27:AG209.
+    """
     try:
         gc = conectar_google_sheets()
         sh = gc.open("Sistema_Vendas")
-        # Pega o intervalo fixo
-        dados = sh.worksheet("DADOS-DIA").get("F3:G25")
-        # Cria DataFrame manual
-        df = pd.DataFrame(dados, columns=["Operador", "Performance"])
-        return df
-    except Exception:
-        return pd.DataFrame()
-
-def salvar_venda(venda):
-    """Salva uma nova venda na aba 'Vendas'."""
-    try:
-        gc = conectar_google_sheets()
-        sh = gc.open("Sistema_Vendas")
-        worksheet = sh.worksheet("Vendas")
-        worksheet.append_row(venda)
-        return True
+        worksheet = sh.worksheet("DADOS-DIA")
+        
+        # Pega todos os dados da planilha
+        todos_dados = worksheet.get_all_values()
+        
+        # --- CONFIGURAÇÃO DO INTERVALO (A27:AG209) ---
+        # Linha 27 do Excel = Índice 26 no Python
+        INDICE_CABECALHO = 26 
+        
+        if len(todos_dados) > INDICE_CABECALHO:
+            # O cabeçalho (Datas) está na linha 27
+            cabecalho = todos_dados[INDICE_CABECALHO]
+            
+            # Os dados começam na linha 28 em diante
+            dados_brutos = todos_dados[INDICE_CABECALHO+1:] 
+            
+            # Cria o DataFrame
+            df = pd.DataFrame(dados_brutos, columns=cabecalho)
+            
+            # Limpeza 1: Remove colunas vazias (caso pegue além da AG)
+            df = df.loc[:, df.columns != '']
+            
+            # Limpeza 2: Garante que estamos pegando apenas linhas com Operadores preenchidos
+            # Isso evita linhas vazias após a linha 209
+            df = df[df.iloc[:, 0].str.strip() != ""]
+            
+            return df
+        else:
+            st.error("Erro: A planilha não possui dados suficientes na linha 27.")
+            return pd.DataFrame()
     except Exception as e:
-        st.error(f"Erro ao salvar: {e}")
-        return False
+        st.error(f"Erro ao carregar dados: {e}")
+        return pd.DataFrame()
 
-# --- 3. TELA DE LOGIN ---
+def tratar_porcentagem(valor):
+    """Transforma '100,00%' ou '98%' em 1.0 ou 0.98"""
+    if isinstance(valor, str):
+        valor_limpo = valor.replace('%', '').replace(',', '.').strip()
+        if valor_limpo == '' or valor_limpo == '#N/A': 
+            return 0.0
+        try:
+            return float(valor_limpo) / 100
+        except ValueError:
+            return 0.0
+    return valor
+
+# --- 3. LOGIN ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.title("🔒 Acesso TeamBrisa")
-        st.markdown("---")
-        usuario = st.text_input("Usuário")
-        senha = st.text_input("Senha", type="password")
-        
-        if st.button("Entrar no Sistema", use_container_width=True):
-            with st.spinner("Verificando..."):
-                df_users = carregar_dados("Usuarios")
-                
-                if not df_users.empty:
-                    df_users['Senha'] = df_users['Senha'].astype(str)
-                    user = df_users[(df_users['Usuario'] == usuario) & (df_users['Senha'] == str(senha))]
-                    
-                    if not user.empty:
-                        st.session_state['logado'] = True
-                        st.session_state['usuario'] = user.iloc[0]['Nome']
-                        st.session_state['funcao'] = user.iloc[0]['Funcao']
-                        st.rerun() 
-                    else:
-                        st.error("Dados incorretos.")
-                else:
-                    st.error("Erro na conexão com usuários.")
+        with st.container(border=True):
+            st.title("🔒 Acesso TeamBrisa")
+            usuario = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            
+            if st.button("Entrar no Sistema", use_container_width=True):
+                # Validação simples (Substitua por sua lógica real)
+                if usuario and senha: 
+                    st.session_state['logado'] = True
+                    st.session_state['usuario'] = "Gestor"
+                    st.session_state['funcao'] = 'admin'
+                    st.rerun()
 
 # --- 4. SISTEMA PRINCIPAL ---
 def main():
-    # --- A. PREPARAÇÃO DOS DADOS ---
-    df_vendas = carregar_dados("Vendas")
+    df_matriz = carregar_matriz_dados()
     
-    if df_vendas.empty:
-        df_vendas = pd.DataFrame(columns=["Data", "Vendedor", "Cliente", "Produto", "Valor", "Status"])
-    else:
-        # Limpeza de nomes de colunas (Remove espaços extras)
-        df_vendas.columns = df_vendas.columns.str.strip()
-
-    # Tratamento da coluna Valor (R$ -> Número)
-    if 'Valor' in df_vendas.columns:
-        df_vendas['Valor'] = df_vendas['Valor'].astype(str).str.replace('R$', '', regex=False)
-        df_vendas['Valor'] = df_vendas['Valor'].str.replace('.', '', regex=False)
-        df_vendas['Valor'] = df_vendas['Valor'].str.replace(',', '.', regex=False)
-        df_vendas['Valor'] = pd.to_numeric(df_vendas['Valor'], errors='coerce').fillna(0.0)
-
-    # --- B. BARRA LATERAL (MENU) ---
+    # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
-        st.markdown(f"<div style='text-align: center;'>Olá, <b>{st.session_state['usuario']}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align: center;'>Olá, <b>{st.session_state.get('usuario', 'Gestor')}</b></div>", unsafe_allow_html=True)
         st.markdown("---")
-
-        cargo = st.session_state['funcao'].lower()
         
-        # Definição das opções
-        if cargo == 'admin':
-            opcoes = ["Dashboard", "Nova Venda", "Banco de Dados"]
-            icones = ["graph-up", "cart-plus", "table"] 
-        else:
-            opcoes = ["Dashboard", "Nova Venda"]
-            icones = ["graph-up", "cart-plus"]
-
-        # Componente Visual do Menu
         escolha = option_menu(
-            menu_title=None,          
-            options=opcoes,           
-            icons=icones,             
-            menu_icon="cast",         
-            default_index=0,          
-            styles={
-                "container": {"padding": "0!important", "background-color": "#f0f2f6"},
-                "icon": {"color": "orange", "font-size": "20px"}, 
-                "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#eee"},
-                "nav-link-selected": {"background-color": "#2C3E50"},
-            }
+            menu_title=None, options=["Painel Tático"], icons=["graph-up-arrow"], menu_icon="cast", default_index=0,
+            styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#FF4B4B"}}
         )
-        
-        # Filtros (Apenas Admin e no Dashboard)
         st.markdown("---")
-        filtro_vendedor = "Todos"
-        if escolha == "Dashboard" and cargo == 'admin':
-            st.caption("Filtros Gerenciais")
-            if 'Vendedor' in df_vendas.columns:
-                vendedores = ["Todos"] + list(df_vendas['Vendedor'].unique())
-                filtro_vendedor = st.selectbox("Filtrar Vendedor:", vendedores)
 
-        if st.button("Sair", use_container_width=True):
+        # --- FILTROS ---
+        st.subheader("🔍 Filtros Operacionais")
+        
+        if not df_matriz.empty:
+            # Filtro 1: Operador (Coluna A)
+            lista_operadores = sorted(list(set(df_matriz.iloc[:, 0].unique())))
+            filtro_operador = st.selectbox("Filtrar Operador:", lista_operadores)
+
+            # Filtro 2: Métrica (Coluna B) - Tenta selecionar 'Meta' automaticamente
+            lista_metricas = sorted(list(set(df_matriz.iloc[:, 1].unique())))
+            index_meta = lista_metricas.index('Meta') if 'Meta' in lista_metricas else 0
+            filtro_metrica = st.selectbox("Filtrar Métrica:", lista_metricas, index=index_meta)
+        else:
+            filtro_operador, filtro_metrica = None, None
+
+        st.markdown("---")
+        if st.button("Sair"):
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- C. TELAS DO SISTEMA ---
-    
-    # >> TELA 1: DASHBOARD (Gráficos + Ranking)
-    if escolha == "Dashboard":
-        st.title("📊 Painel de Controle")
-        
-        # Aplica filtros
-        df_filtrado = df_vendas.copy()
-        if filtro_vendedor != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['Vendedor'] == filtro_vendedor]
-        
-        if cargo != 'admin':
-            df_filtrado = df_filtrado[df_filtrado['Vendedor'] == st.session_state['usuario']]
+    # --- PAINEL TÁTICO ---
+    if escolha == "Painel Tático":
+        st.title("📊 Painel Tático")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        if not df_filtrado.empty:
-            # Cards KPI
-            total = df_filtrado['Valor'].sum()
-            c1, c2 = st.columns(2)
-            c1.metric("Faturamento Total", f"R$ {total:,.2f}")
-            c2.metric("Vendas Realizadas", len(df_filtrado))
-            
-            st.markdown("---")
-            
-            # LAYOUT: Esquerda (Gráficos) | Direita (Ranking)
-            col_g, col_rank = st.columns([1.5, 1]) 
-            
-            with col_g:
-                st.subheader("Performance de Vendas")
-                # Gráfico de Barras
-                dados_prod = df_filtrado.groupby("Produto")["Valor"].sum()
-                st.bar_chart(dados_prod)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Gráfico de Linha (Tendência)
-                st.subheader("Tendência Temporal")
-                try:
-                    df_chart = df_filtrado.copy()
-                    df_chart['Data_Clean'] = pd.to_datetime(df_chart['Data'], format='%d/%m/%Y', errors='coerce')
-                    grafico_linha = df_chart.groupby('Data_Clean')['Valor'].sum()
-                    if not grafico_linha.empty:
-                        st.line_chart(grafico_linha)
-                    else:
-                        st.info("Cadastre vendas em dias diferentes para ver a evolução.")
-                except:
-                    st.warning("Dados insuficientes para tendência.")
+        if df_matriz.empty:
+            st.warning("Verifique a conexão ou a estrutura da aba DADOS-DIA (Linha 27).")
+            st.stop()
 
-            with col_rank:
-                st.subheader("🏆 Ranking (DADOS-DIA)")
-                
-                # Carrega e trata o Ranking
-                df_ranking = carregar_ranking()
-                
-                if not df_ranking.empty:
-                    # Remove erros do Excel (#N/A)
-                    df_ranking = df_ranking[df_ranking['Operador'] != '#N/A']
-                    df_ranking = df_ranking[df_ranking['Performance'] != '']
+        # Identifica colunas de data (Assume que datas começam na Coluna C / índice 2)
+        colunas_datas = df_matriz.columns[2:].tolist()
+        colunas_datas = [c for c in colunas_datas if c and c.strip() != '']
+
+        col_grafico, col_ranking = st.columns([2, 1], gap="large")
+
+        # --- GRÁFICO (ESQUERDA) ---
+        with col_grafico:
+            st.subheader(f"📈 Evolução: {filtro_metrica}")
+            st.caption(f"Operador: {filtro_operador}")
+
+            if filtro_operador and filtro_metrica:
+                mask_op = df_matriz.iloc[:, 0] == filtro_operador
+                mask_met = df_matriz.iloc[:, 1] == filtro_metrica
+                df_filtrado = df_matriz[mask_op & mask_met].copy()
+
+                if not df_filtrado.empty:
+                    # Prepara dados para o gráfico
+                    df_long = pd.melt(df_filtrado, 
+                                      id_vars=[df_matriz.columns[0], df_matriz.columns[1]], 
+                                      value_vars=colunas_datas, 
+                                      var_name='Data', value_name='ValorBruto')
                     
-                    # Converte porcentagem texto para número (ex: "98%" -> 0.98)
-                    df_ranking['Performance'] = df_ranking['Performance'].astype(str).str.replace('%', '').str.replace(',', '.')
-                    df_ranking['Performance'] = pd.to_numeric(df_ranking['Performance'], errors='coerce') / 100
+                    df_long['Valor'] = df_long['ValorBruto'].apply(tratar_porcentagem)
                     
-                    # Ordena
-                    df_ranking = df_ranking.sort_values(by="Performance", ascending=False)
+                    # Gráfico Plotly
+                    fig = px.line(df_long, x='Data', y='Valor', markers=True, 
+                                  labels={'Valor': 'Performance', 'Data': 'Dia'})
+                    
+                    fig.update_traces(line_color='#FF4B4B', line_width=3, marker_size=8)
+                    fig.update_layout(hovermode="x unified", yaxis_tickformat='.0%', 
+                                      yaxis_range=[0, 1.1], height=400)
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Sem dados para a seleção.")
 
-                    # Exibe Tabela Profissional
+        # --- RANKING (DIREITA) ---
+        with col_ranking:
+            st.subheader("🏆 Ranking Geral")
+            st.caption(f"Top Performance em: **{filtro_metrica}**")
+
+            if filtro_metrica:
+                # Pega todos da métrica selecionada
+                df_rank = df_matriz[df_matriz.iloc[:, 1] == filtro_metrica].copy()
+                
+                if not df_rank.empty:
+                    # Usa a última data disponível como referência para o Ranking
+                    ultima_data = colunas_datas[-1]
+                    
+                    df_final = pd.DataFrame({
+                        'Operador': df_rank.iloc[:, 0],
+                        'Performance': df_rank[ultima_data].apply(tratar_porcentagem)
+                    })
+                    
+                    df_final = df_final.sort_values(by='Performance', ascending=False)
+                    
                     st.dataframe(
-                        df_ranking,
+                        df_final,
                         use_container_width=True,
                         hide_index=True,
+                        height=400,
                         column_config={
                             "Operador": st.column_config.TextColumn("Colaborador"),
                             "Performance": st.column_config.ProgressColumn(
-                                "Meta Atingida", 
-                                format="%.1f%%", 
-                                min_value=0, 
-                                max_value=1
+                                "Atingimento Atual", format="%.1f%%", min_value=0, max_value=1
                             ),
                         }
                     )
-                else:
-                    st.info("Aguardando dados da aba DADOS-DIA...")
 
-        else:
-            st.warning("Nenhum dado de venda encontrado.")
-
-    # >> TELA 2: NOVA VENDA
-    elif escolha == "Nova Venda":
-        st.title("📝 Registrar Nova Venda")
-        
-        with st.container(border=True):
-            with st.form("form_venda"):
-                c1, c2 = st.columns(2)
-                data = c1.date_input("Data")
-                cliente = c1.text_input("Cliente")
-                produto = c2.selectbox("Produto", ["Consultoria", "Sistema", "Manutenção", "Outros"])
-                valor = c2.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-                
-                if st.form_submit_button("💾 Confirmar Venda", use_container_width=True):
-                    nova = [
-                        data.strftime("%d/%m/%Y"),
-                        st.session_state['usuario'],
-                        cliente,
-                        produto,
-                        float(valor),
-                        "Pendente"
-                    ]
-                    if salvar_venda(nova):
-                        st.success("Venda registrada com sucesso!")
-    
-    # >> TELA 3: BANCO DE DADOS (Admin)
-    elif escolha == "Banco de Dados":
-        st.title("📂 Base de Dados Completa")
-        st.info("Visualização bruta da aba 'Vendas'.")
-        st.dataframe(df_vendas, use_container_width=True)
-
-# --- 5. INICIALIZAÇÃO ---
-if 'logado' not in st.session_state:
-    st.session_state['logado'] = False
-
-if not st.session_state['logado']:
-    login()
-else:
-    main()
+# --- INICIALIZAÇÃO ---
+if 'logado' not in st.session_state: st.session_state['logado'] = False
+if not st.session_state['logado']: login()
+else: main()
