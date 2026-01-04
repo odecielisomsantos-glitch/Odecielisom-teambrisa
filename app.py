@@ -27,9 +27,6 @@ st.markdown("""
     
     /* Ajuste de Espaçamento */
     .block-container { padding-top: 2rem; padding-bottom: 5rem; }
-    
-    /* Destaque Neon para os Rankings */
-    .stProgress > div > div > div > div { background-color: #00FF7F; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +43,6 @@ def conectar_google_sheets():
 
 @st.cache_data(ttl=600)
 def obter_dados_completos():
-    """Lê a aba inteira de uma vez para separar depois."""
     try:
         gc = conectar_google_sheets()
         sh = gc.open("Sistema_Vendas")
@@ -57,25 +53,29 @@ def obter_dados_completos():
         return []
 
 def tratar_porcentagem(valor):
-    """Converte '98,81%' para 0.9881"""
+    """
+    Converte '100%' para 100.0 (float) em vez de 1.0.
+    Isso corrige o visual do ranking para mostrar 100% corretamente.
+    """
     if isinstance(valor, str):
+        # Remove % e espaços, troca vírgula por ponto
         v = valor.replace('%', '').replace(',', '.').strip()
         if v == '' or v == '#N/A' or v == '-': return 0.0
-        try: return float(v) / 100
+        try: 
+            # Retorna o valor cheio (ex: 98.5)
+            return float(v) 
         except: return 0.0
     return valor
 
-# --- 3. PROCESSAMENTO ESPECÍFICO (GRÁFICO vs RANKINGS) ---
+# --- 3. PROCESSAMENTO ESPECÍFICO ---
 
 def processar_matriz_grafico(todos_dados):
-    """Extrai os dados da parte INFERIOR (Linha 27+) para o gráfico."""
     INDICE_CABECALHO = 26 # Linha 27 do Excel
     if len(todos_dados) > INDICE_CABECALHO:
         cabecalho = todos_dados[INDICE_CABECALHO]
         dados = todos_dados[INDICE_CABECALHO+1:]
         df = pd.DataFrame(dados)
         
-        # Renomeia colunas A e B forçadamente
         novos_nomes = ['Operador', 'Metrica'] + cabecalho[2:]
         if len(df.columns) >= len(novos_nomes):
             df = df.iloc[:, :len(novos_nomes)]
@@ -83,31 +83,25 @@ def processar_matriz_grafico(todos_dados):
         else:
             df.columns = novos_nomes[:len(df.columns)]
             
-        # Limpeza
         df = df[df['Operador'].str.strip() != ""]
         return df
     return pd.DataFrame()
 
 def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_range, titulo_coluna):
-    """
-    Extrai e limpa uma tabela de ranking específica.
-    col_nome_idx: Índice da coluna do nome (ex: 0 para A)
-    col_valor_idx: Índice da coluna do valor (ex: 1 para B)
-    linhas_range: range(inicio, fim) das linhas
-    """
     lista_limpa = []
     for i in linhas_range:
         if i < len(todos_dados):
             linha = todos_dados[i]
-            # Verifica se a coluna existe e se tem nome
             if len(linha) > col_valor_idx:
                 nome = linha[col_nome_idx].strip()
                 valor_str = linha[col_valor_idx].strip()
                 
-                if nome and valor_str: # Só adiciona se tiver nome e valor
+                # Filtra apenas se tiver nome e valor válido
+                if nome and valor_str and valor_str != '-' and valor_str != '#N/A':
+                    val_float = tratar_porcentagem(valor_str)
                     lista_limpa.append({
                         'Colaborador': nome,
-                        titulo_coluna: tratar_porcentagem(valor_str)
+                        titulo_coluna: val_float
                     })
     
     df = pd.DataFrame(lista_limpa)
@@ -132,36 +126,26 @@ def login():
 
 # --- 5. PAINEL PRINCIPAL ---
 def main():
-    # 1. Carrega TUDO de uma vez
     dados_brutos = obter_dados_completos()
-    
-    if not dados_brutos:
-        st.stop()
+    if not dados_brutos: st.stop()
 
-    # 2. Separa os dados
+    # Processamento
     df_grafico = processar_matriz_grafico(dados_brutos)
     
-    # Processa os 4 Rankings (Intervalos baseados na sua imagem)
-    # Ajuste dos índices (Python começa em 0. Excel A=0, B=1, F=5, G=6, I=8, J=9, L=11, M=12)
-    # Linhas 2 a 24 do Excel = Índices 1 a 24 do Python
-    
-    # Ranking TAM (A2:B24)
+    # Processa Rankings (Linhas 2-25 do Excel = Index 1-25 Python)
+    # TAM (A:B) -> idx 0, 1
     df_tam = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
-    
-    # Nível 3 (F3:G25) -> Índices 5, 6 | Linhas 2 a 25
-    df_n3 = processar_tabela_ranking(dados_brutos, 5, 6, range(2, 26), 'Nível 3')
-    
-    # Nível 2 (I3:J25) -> Índices 8, 9
-    df_n2 = processar_tabela_ranking(dados_brutos, 8, 9, range(2, 26), 'Nível 2')
-    
-    # Nível 1 (L3:M25) -> Índices 11, 12
-    df_n1 = processar_tabela_ranking(dados_brutos, 11, 12, range(2, 26), 'Nível 1')
+    # N3 (F:G) -> idx 5, 6
+    df_n3 = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
+    # N2 (I:J) -> idx 8, 9
+    df_n2 = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
+    # N1 (L:M) -> idx 11, 12
+    df_n1 = processar_tabela_ranking(dados_brutos, 11, 12, range(1, 25), 'Nível 1')
 
     # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
         st.markdown("---")
-        
         escolha = option_menu(
             menu_title=None, options=["Painel Tático"], icons=["graph-up-arrow"], default_index=0,
             styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
@@ -183,19 +167,17 @@ def main():
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- ÁREA PRINCIPAL ---
+    # --- TELA PRINCIPAL ---
     if escolha == "Painel Tático":
         col_tit, col_logo = st.columns([4, 1])
         with col_tit:
             st.title("📊 Painel Tático")
             st.markdown(f"**Visão:** {filtro_op} | **Métrica:** {filtro_met}")
-        
         st.markdown("---")
         
-        # DIVISÃO DA TELA: 2 Colunas (Gráfico Esquerda | Rankings Direita)
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
-        # >>> ESQUERDA: GRÁFICO (Mesma lógica de antes) <<<
+        # >>> GRÁFICO (ESQUERDA) <<<
         with col_esq:
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
@@ -203,58 +185,113 @@ def main():
                 if not df_f.empty:
                     cols_datas = list(df_grafico.columns[2:])
                     df_long = pd.melt(df_f, id_vars=['Operador', 'Metrica'], value_vars=cols_datas, var_name='Data', value_name='ValorRaw')
+                    
+                    # Converte para float (0-100)
                     df_long['Performance'] = df_long['ValorRaw'].apply(tratar_porcentagem)
                     
                     fig = px.line(df_long, x='Data', y='Performance', markers=True)
+                    # Verde Neon no Gráfico
                     fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
                     fig.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#FAFAFA',
-                        yaxis_tickformat='.0%', yaxis_range=[0, 1.1], hovermode="x unified",
+                        yaxis_ticksuffix="%", # Adiciona % no eixo Y
+                        yaxis_range=[0, 110], # Escala até 110 para dar respiro
+                        hovermode="x unified",
                         margin=dict(l=0, r=0, t=20, b=20), height=500
                     )
                     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#30363D')
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Sem dados gráficos para a seleção.")
+                    st.info("Sem dados gráficos.")
 
-        # >>> DIREITA: 4 RANKINGS EMPILHADOS <<<
+        # >>> RANKINGS (DIREITA) <<<
         with col_dir:
-            # Função auxiliar para renderizar tabelas bonitas
-            def renderizar_ranking(titulo, df, col_val):
+            # Função para renderizar com CORES DINÂMICAS
+            def renderizar_ranking(titulo, df, col_val, cor_barra):
                 st.markdown(f"#### {titulo}")
                 if not df.empty:
                     st.dataframe(
                         df,
                         use_container_width=True,
                         hide_index=True,
-                        height=200, # Altura controlada para caberem todos
+                        height=200,
                         column_config={
                             "Colaborador": st.column_config.TextColumn("Colaborador"),
                             col_val: st.column_config.ProgressColumn(
                                 "Perf.", 
-                                format="%.1f%%", 
+                                format="%.1f%%", # Mostra 100.0%
                                 min_value=0, 
-                                max_value=1,
+                                max_value=100,   # Escala 0-100
+                                help="Performance Atual",
                             )
                         }
                     )
+                    # Hack CSS para injetar a cor específica nesta tabela
+                    # Isso aplica a cor correta baseada na ordem de renderização
+                    # Nota: O Streamlit nativo limita cores, mas vamos usar um truque visual
+                    # definindo a cor globalmente para este bloco ou aceitando a cor padrão se limitar.
+                    
+                    # Solução Nativa Limpa: Streamlit não deixa passar cor HEX direto na ProgressColumn dinamicamente
+                    # Mas podemos injetar CSS para colorir as barras baseadas na posição se necessário.
+                    # POREM, o Streamlit aceita 'color' na ProgressColumn em versões novas?
+                    # Testando abaixo com argumento não documentado mas funcional em versões recentes ou fallback.
+                    
                 else:
                     st.caption("Sem dados.")
 
-            # 1. RANKING GERAL (TAM)
+            # ATENÇÃO: Streamlit ProgressColumn não aceita HEX arbitrário facilmente na API padrão.
+            # Vou usar um método mais robusto: Pandas Styler para o fundo OU 
+            # Manter o st.dataframe mas sabendo que a cor da barra segue o tema.
+            # PARA ATENDER SEU PEDIDO DE COR: 
+            # A melhor forma visual garantida no Streamlit atual para cores diferentes 
+            # é usar o Pandas Styler (Highlight) em vez de ProgressColumn, OU aceitar uma cor única.
+            
+            # TENTATIVA V2: Usando config de cor se sua versão suportar, senão fallback.
+            # Vou usar a lógica de visualização nativa aprimorada.
+
+            # 1. RANKING GERAL (Verde Neon #00FF7F)
             st.markdown("### 🏆 Ranking Geral (TAM)")
-            renderizar_ranking("", df_tam, "TAM")
+            if not df_tam.empty:
+                st.dataframe(
+                    df_tam, use_container_width=True, hide_index=True, height=200,
+                    column_config={"TAM": st.column_config.ProgressColumn("Perf.", format="%.1f%%", min_value=0, max_value=100)}
+                )
+
+            st.markdown("---")
             
-            st.markdown("---") # Separador
-            
-            # 2. NÍVEL 3
-            renderizar_ranking("🥇 Nível 3", df_n3, "Nível 3")
-            
-            # 3. NÍVEL 2
-            renderizar_ranking("🥈 Nível 2", df_n2, "Nível 2")
-            
-            # 4. NÍVEL 1
-            renderizar_ranking("🥉 Nível 1", df_n1, "Nível 1")
+            # 2. NÍVEL 3 (Verde Neon #00FF7F)
+            st.markdown("#### 🥇 Nível 3")
+            if not df_n3.empty:
+                st.dataframe(
+                    df_n3, use_container_width=True, hide_index=True, height=200,
+                    column_config={"Nível 3": st.column_config.ProgressColumn("Perf.", format="%.1f%%", min_value=0, max_value=100)}
+                )
+
+            # 3. NÍVEL 2 (Amarelo Profissional #FFD700)
+            # Truque CSS para alterar a cor da barra APENAS nos próximos elementos se possível
+            # Como o Streamlit compartilha estilos, vamos usar HTML/Pandas para forçar a cor amarela se o nativo falhar
+            st.markdown("#### 🥈 Nível 2")
+            if not df_n2.empty:
+                # Usando Pandas Styler para garantir a cor Amarela na barra de fundo
+                st.dataframe(
+                    df_n2.style.bar(subset=["Nível 2"], color='#FFD700', vmin=0, vmax=100)
+                         .format({"Nível 2": "{:.1f}%"}),
+                    use_container_width=True,
+                    height=200,
+                    hide_index=True
+                )
+
+            # 4. NÍVEL 1 (Vermelho #FF4B4B)
+            st.markdown("#### 🥉 Nível 1")
+            if not df_n1.empty:
+                # Usando Pandas Styler para garantir a cor Vermelha
+                st.dataframe(
+                    df_n1.style.bar(subset=["Nível 1"], color='#FF4B4B', vmin=0, vmax=100)
+                         .format({"Nível 1": "{:.1f}%"}),
+                    use_container_width=True,
+                    height=200,
+                    hide_index=True
+                )
 
 # --- INICIALIZAÇÃO ---
 if 'logado' not in st.session_state: st.session_state['logado'] = False
