@@ -463,7 +463,6 @@ def main():
                 st.markdown("### 💎 Monitoramento de Performance (Diamantes)")
                 
                 if not df_monit.empty:
-                    # CONFIGURAÇÃO DE SEMÁFORO RÍGIDO (Laranja, Amarelo, Verde)
                     fig_monit = px.density_heatmap(
                         df_monit, 
                         x='Data', 
@@ -471,8 +470,7 @@ def main():
                         z='Diamantes',
                         text_auto=True,
                         color_continuous_scale=st.session_state['colorscale_monit'],
-                        zmin=0,  # TRAVA O MÍNIMO EM 0
-                        zmax=42  # TRAVA O MÁXIMO EM 42 (REGRA DE NEGÓCIO)
+                        range_color=[0, 42] # CORREÇÃO CRUCIAL AQUI
                     )
                     
                     fig_monit.update_layout(
