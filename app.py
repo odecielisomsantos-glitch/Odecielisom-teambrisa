@@ -27,7 +27,7 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        st.session_state['bar_color'] = '#00B4D8' # Azul Cyan para TMA
+        st.session_state['bar_color'] = '#00B4D8' 
         
     else:
         bg_color = "#FFFFFF"
@@ -104,16 +104,10 @@ def tratar_porcentagem(valor):
     return valor
 
 def tratar_tempo_tma(valor):
-    """
-    Converte valores de tempo para FLOAT (Minutos).
-    Aceita: "5,30" (5.3 min) ou "00:05:30" (converte para 5.5 min) ou inteiros.
-    """
     if not isinstance(valor, str):
         return float(valor) if valor else 0.0
-    
     v = valor.strip()
     if v == '' or v == '-' or v == '#N/A': return 0.0
-    
     if ':' in v:
         partes = v.split(':')
         try:
@@ -123,14 +117,10 @@ def tratar_tempo_tma(valor):
             elif len(partes) == 2: # MM:SS
                 m, s = map(float, partes)
                 return m + (s / 60)
-        except:
-            return 0.0
-            
+        except: return 0.0
     v = v.replace(',', '.')
-    try:
-        return float(v)
-    except:
-        return 0.0
+    try: return float(v)
+    except: return 0.0
 
 # --- 5. PROCESSAMENTO ---
 def processar_matriz_grafico(todos_dados):
@@ -222,7 +212,7 @@ def mover_tarefa(id_tarefa, novo_status):
 def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
-# --- 8. LOGIN (A PARTE QUE FALTAVA) ---
+# --- 8. LOGIN ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -251,7 +241,6 @@ def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
-    # Processamento de Dados
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma(dados_brutos) 
     
@@ -273,7 +262,7 @@ def main():
         df_tma = df_tma_total
     else:
         df_grafico = df_grafico_total[df_grafico_total['Operador'] == nome_usuario]
-        df_tma = df_tma_total[df_tma_total['Operador'] == nome_usuario]
+        df_tma = df_tma_total # TODOS VEEM O TMA GERAL
         df_tam = df_tam_total[df_tam_total['Colaborador'] == nome_usuario]
         df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
@@ -282,7 +271,6 @@ def main():
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
 
-    # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
@@ -352,7 +340,6 @@ def main():
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
-            # 1. GRÁFICO DE EVOLUÇÃO
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -384,40 +371,35 @@ def main():
 
             st.markdown("---")
             
-            # 2. NOVO GRÁFICO: TMA (COLUNAS)
+            # --- CORREÇÃO AQUI: GRÁFICO TMA SEM FILTRO DE OPERADOR ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
-            if filtro_op and not df_tma.empty:
-                # Filtra o operador selecionado na tabela de TMA (O1:AD6)
-                df_tma_op = df_tma[df_tma['Operador'] == filtro_op]
+            if not df_tma.empty:
+                # AGORA EXIBE TUDO, IGNORANDO 'filtro_op'
+                # Prepara os dados de TODOS os registros em O1:AD6
+                cols_tma = list(df_tma.columns[1:]) 
+                df_tma_long = pd.melt(df_tma, id_vars=['Operador'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
                 
-                if not df_tma_op.empty:
-                    # Prepara os dados
-                    cols_tma = list(df_tma.columns[1:]) # Colunas de data
-                    df_tma_long = pd.melt(df_tma_op, id_vars=['Operador'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
-                    
-                    # Converte para minutos numéricos
-                    df_tma_long['Minutos'] = df_tma_long['MinutosRaw'].apply(tratar_tempo_tma)
-                    
-                    # Cria Gráfico de Barras
-                    fig_tma = px.bar(df_tma_long, x='Data', y='Minutos', text='Minutos')
-                    
-                    fig_tma.update_traces(
-                        marker_color=st.session_state['bar_color'], # Azul Cyan do Tema
-                        texttemplate='%{text:.1f}', textposition='outside'
-                    )
-                    
-                    fig_tma.update_layout(
-                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
-                        yaxis_title="Minutos",
-                        margin=dict(l=0, r=0, t=20, b=20), height=350
-                    )
-                    fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
-                    
-                    st.plotly_chart(fig_tma, use_container_width=True)
-                else:
-                    st.warning(f"O operador {filtro_op} não possui dados na tabela de TMA (O1:AD6).")
+                # Converte para minutos numéricos
+                df_tma_long['Minutos'] = df_tma_long['MinutosRaw'].apply(tratar_tempo_tma)
+                
+                # Cria Gráfico de Barras AGRUPADO por Data e COR por Categoria (Operador/Canal)
+                fig_tma = px.bar(df_tma_long, x='Data', y='Minutos', color='Operador', barmode='group', text='Minutos')
+                
+                fig_tma.update_traces(
+                    texttemplate='%{text:.1f}', textposition='outside'
+                )
+                
+                fig_tma.update_layout(
+                    paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                    yaxis_title="Minutos",
+                    legend=dict(orientation="h", y=1.1, title=None), # Legenda em cima
+                    margin=dict(l=0, r=0, t=20, b=20), height=350
+                )
+                fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
+                
+                st.plotly_chart(fig_tma, use_container_width=True)
             else:
-                 st.info("Dados de TMA não carregados ou não encontrados.")
+                 st.info("Dados de TMA não encontrados na planilha (O1:AD6).")
 
         with col_dir:
             renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
@@ -437,7 +419,6 @@ def main():
     elif escolha == "Tarefas":
         st.title("✅ Kanban Board")
         st.markdown("---")
-        
         with st.expander("➕ Nova Tarefa", expanded=False):
             with st.form("form_tarefa"):
                 c1, c2 = st.columns([3, 1])
