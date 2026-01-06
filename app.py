@@ -27,9 +27,9 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        # DEGRADÊ NEON PROFISSIONAL
+        # DEGRADÊ NEON (Verde Vibrante)
         st.session_state['neon_gradient'] = [
-            (0.0, "rgba(0, 255, 127, 0.3)"), 
+            (0.0, "rgba(0, 255, 127, 0.4)"), 
             (1.0, "#00FF7F") 
         ]
         
@@ -368,7 +368,7 @@ def main():
 
             st.markdown("---")
             
-            # --- GRÁFICO TMA: BARRAS NEON DEGRADÊ (FONTE AUMENTADA) ---
+            # --- GRÁFICO TMA: RÓTULOS MAIORES E VISÍVEIS ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
             if not df_tma_total.empty:
                 fig_tma = px.bar(
@@ -380,13 +380,14 @@ def main():
                     text='MinutosRaw'
                 )
                 
-                # --- AQUI ESTÁ A MUDANÇA: FONTE MAIOR ---
+                # CONFIGURAÇÃO DE TEXTO GRANDE E VISÍVEL
                 fig_tma.update_traces(
                     marker_line_width=0, 
                     textposition='outside',
-                    textfont_size=16, # Aumentado para 16
-                    textfont_weight='bold', # Negrito para destaque
-                    cliponaxis=False # Evita cortar o texto
+                    textfont_size=22, # Aumentado para 22px
+                    textfont_weight='bold', # Negrito
+                    textfont_color='#FFFFFF', # Branco Puro para destaque máximo
+                    cliponaxis=False 
                 )
                 
                 fig_tma.update_layout(
