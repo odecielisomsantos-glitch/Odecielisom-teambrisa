@@ -12,7 +12,7 @@ st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_ic
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Escuro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
-# --- 2. LÓGICA DE TEMAS ---
+# --- 2. LÓGICA DE TEMAS (DEGRADÊ NEON APLICADO AQUI) ---
 def aplicar_tema():
     tema = st.session_state['tema']
     
@@ -27,7 +27,11 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        st.session_state['bar_color_tma'] = '#00B4D8' # Azul Ciano Neon para TMA
+        # DEGRADÊ NEON PROFISSIONAL (Do escuro para o Brilhante)
+        st.session_state['neon_gradient'] = [
+            (0.0, "rgba(0, 255, 127, 0.3)"),  # Base transparente
+            (1.0, "#00FF7F")                  # Topo Neon Puro
+        ]
         
     else:
         bg_color = "#FFFFFF"
@@ -40,7 +44,10 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
         st.session_state['chart_grid'] = '#E0E0E0'
-        st.session_state['bar_color_tma'] = '#0077B6' # Azul sólido para Light mode
+        st.session_state['neon_gradient'] = [
+            (0.0, "#A8E6CF"),
+            (1.0, "#008000")
+        ]
 
     st.markdown(f"""
     <style>
@@ -58,15 +65,9 @@ def aplicar_tema():
         
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
         
-        /* Estilizando Selectbox e Inputs para ficarem profissionais */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
-        /* Destaque no hover dos inputs */
-        .stSelectbox div[data-baseweb="select"] > div:hover, .stTextInput input:hover {{
-             border-color: {text_color};
-        }}
-
     </style>
     """, unsafe_allow_html=True)
 
@@ -109,25 +110,20 @@ def tratar_porcentagem(valor):
     return valor
 
 def tratar_tempo_tma(valor):
-    if not isinstance(valor, str):
-        return float(valor) if valor else 0.0
+    if not isinstance(valor, str): return float(valor) if valor else 0.0
     v = valor.strip()
     if v == '' or v == '-' or v == '#N/A': return 0.0
     if ':' in v:
         partes = v.split(':')
         try:
-            if len(partes) == 3: # HH:MM:SS
-                h, m, s = map(float, partes)
-                return (h * 60) + m + (s / 60)
-            elif len(partes) == 2: # MM:SS
-                m, s = map(float, partes)
-                return m + (s / 60)
+            if len(partes) == 3: return (float(partes[0]) * 60) + float(partes[1]) + (float(partes[2]) / 60)
+            elif len(partes) == 2: return float(partes[0]) + (float(partes[1]) / 60)
         except: return 0.0
     v = v.replace(',', '.')
     try: return float(v)
     except: return 0.0
 
-# --- 5. PROCESSAMENTO ---
+# --- 5. PROCESSAMENTO DE DADOS ---
 def processar_matriz_grafico(todos_dados):
     INDICE_CABECALHO = 26 
     if len(todos_dados) > INDICE_CABECALHO:
@@ -144,25 +140,41 @@ def processar_matriz_grafico(todos_dados):
         return df
     return pd.DataFrame()
 
-def processar_dados_tma(todos_dados):
+def processar_dados_tma_complexo(todos_dados):
+    """
+    Lê O1:AD6 e costura as duas partes da tabela (01-15 e 16-31)
+    """
     try:
-        # Fatiamento: Linhas 0 a 6, Colunas 14 a 30 (exclusivo - O1:AD6)
-        bloco_tma = [linha[14:30] for linha in todos_dados[0:6]]
-        if bloco_tma:
-            cabecalho = bloco_tma[0] 
-            dados = bloco_tma[1:]   
-            df = pd.DataFrame(dados)
-            # O nome da primeira coluna aqui será 'Métrica' (ex: TMA Voz)
-            nomes_colunas = ['Métrica'] + cabecalho[1:]
-            if len(df.columns) == len(nomes_colunas):
-                df.columns = nomes_colunas
-            else:
-                df.columns = nomes_colunas[:len(df.columns)]
-            
-            # Remove linhas vazias se houver
-            df = df[df['Métrica'].astype(str).str.strip() != ""]
-            return df
-        return pd.DataFrame()
+        # Fatiamento bruto das linhas relevantes
+        # Excel Row 2 (Index 1) = Datas Parte 1
+        # Excel Row 3 (Index 2) = Valores Parte 1
+        # Excel Row 5 (Index 4) = Datas Parte 2
+        # Excel Row 6 (Index 5) = Valores Parte 2
+        # Colunas O (Index 14) até AD (Index 29)
+        
+        # Parte 1 (01/01 a 16/01 aprox)
+        datas_p1 = todos_dados[1][14:30] 
+        vals_p1 = todos_dados[2][14:30]
+        
+        # Parte 2 (16/01 a 31/01 aprox)
+        datas_p2 = todos_dados[4][14:30]
+        vals_p2 = todos_dados[5][14:30]
+        
+        # Junta tudo
+        datas_full = datas_p1 + datas_p2
+        vals_full = vals_p1 + vals_p2
+        
+        # Cria DataFrame
+        df = pd.DataFrame({
+            'Data': datas_full,
+            'MinutosRaw': vals_full
+        })
+        
+        # Limpa vazios
+        df = df[df['Data'].str.strip() != ""]
+        df['Minutos'] = df['MinutosRaw'].apply(tratar_tempo_tma)
+        
+        return df
     except Exception as e:
         return pd.DataFrame()
 
@@ -230,7 +242,6 @@ def login():
             st.markdown("<h2 style='text-align: center;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
             usuario_input = st.text_input("Usuário")
             senha_input = st.text_input("Senha", type="password")
-            
             if st.button("Entrar", use_container_width=True):
                 if usuario_input in USUARIOS:
                     dados_user = USUARIOS[usuario_input]
@@ -251,7 +262,8 @@ def main():
     if not dados_brutos: st.stop()
 
     df_grafico_total = processar_matriz_grafico(dados_brutos)
-    df_tma_total = processar_dados_tma(dados_brutos) 
+    # AQUI: Usamos a nova função de costura de dados
+    df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
@@ -261,7 +273,6 @@ def main():
     perfil = st.session_state['funcao']
     nome_usuario = st.session_state['nome_real']
 
-    # Filtro de Permissão
     if perfil == 'admin':
         df_grafico = df_grafico_total
         df_tam = df_tam_total
@@ -274,7 +285,6 @@ def main():
         df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
         df_n1 = df_n1_total[df_n1_total['Colaborador'] == nome_usuario]
-        # TMA é global, todos veem o mesmo df_tma_total
 
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
@@ -348,7 +358,7 @@ def main():
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
-            # 1. GRÁFICO DE EVOLUÇÃO (LINHAS)
+            # 1. GRÁFICO DE EVOLUÇÃO
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -380,53 +390,42 @@ def main():
 
             st.markdown("---")
             
-            # --- GRÁFICO TMA PROFISSIONAL (BARRAS C/ SELETOR) ---
+            # --- GRÁFICO TMA: BARRAS NEON DEGRADÊ (DADOS UNIFICADOS) ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
             if not df_tma_total.empty:
-                # 1. Prepara os dados (Melt)
-                cols_tma = list(df_tma_total.columns[1:]) 
-                df_tma_long = pd.melt(df_tma_total, id_vars=['Métrica'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
-                df_tma_long['Minutos'] = df_tma_long['MinutosRaw'].apply(tratar_tempo_tma)
-                
-                # 2. Seletor Minimalista para Filtrar a Métrica
-                col_sel, _ = st.columns([2,3]) # Coluna menor para o seletor ficar elegante
-                with col_sel:
-                    metricas_disponiveis = df_tma_long['Métrica'].unique()
-                    metrica_selecionada = st.selectbox("Selecione a Métrica de TMA:", metricas_disponiveis, index=0)
-                
-                # 3. Filtra os dados com base na seleção
-                df_filtered = df_tma_long[df_tma_long['Métrica'] == metrica_selecionada]
-
-                # 4. Gráfico de Barras Profissional
+                # Cria gráfico de barras com cor mapeada pelo valor (Minutos)
                 fig_tma = px.bar(
-                    df_filtered, 
+                    df_tma_total, 
                     x='Data', 
-                    y='Minutos', 
-                    color_discrete_sequence=[st.session_state['bar_color_tma']] # Usa a cor do tema
+                    y='Minutos',
+                    color='Minutos', # Intensidade baseada no valor
+                    color_continuous_scale=st.session_state['neon_gradient'],
+                    text='MinutosRaw' # Mostra o tempo original (00:09:43) no topo
                 )
                 
-                # Estilização Fina
+                # Visual Flat e Moderno
                 fig_tma.update_traces(
-                    marker_line_width=0, # Remove bordas das barras para look flat
-                    opacity=0.9,         # Leve transparência
-                    hovertemplate='<b>Data:</b> %{x}<br><b>TMA:</b> %{y:.2f} min<extra></extra>' # Tooltip limpo
+                    marker_line_width=0, # Sem borda
+                    textposition='outside',
+                    textfont_size=12
                 )
                 
                 fig_tma.update_layout(
                     paper_bgcolor=st.session_state['chart_bg'], 
                     plot_bgcolor=st.session_state['chart_bg'], 
                     font_color=st.session_state['chart_font'],
-                    xaxis_title=None, # Remove rótulo "Data" (redundante)
-                    yaxis_title="Minutos",
-                    bargap=0.2, # Espaçamento elegante entre barras
-                    margin=dict(l=0, r=0, t=10, b=10), # Margens justas
+                    xaxis_title=None, 
+                    yaxis_title="Minutos (Decimal)",
+                    bargap=0.2, 
                     height=350,
+                    margin=dict(l=0, r=0, t=20, b=20),
+                    coloraxis_showscale=False, # Remove barra de cores lateral
                     hovermode="x unified"
                 )
-                # Linhas de grade sutis apenas na horizontal
+                
                 fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
                 fig_tma.update_xaxes(showgrid=False)
-
+                
                 st.plotly_chart(fig_tma, use_container_width=True, config={'displayModeBar': False})
             else:
                  st.info("Dados de TMA não encontrados na planilha (O1:AD6).")
