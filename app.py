@@ -114,7 +114,6 @@ def tratar_tempo_tma(valor):
     v = valor.strip()
     if v == '' or v == '-' or v == '#N/A': return 0.0
     
-    # Caso 1: Formato HH:MM:SS ou MM:SS
     if ':' in v:
         partes = v.split(':')
         try:
@@ -127,7 +126,6 @@ def tratar_tempo_tma(valor):
         except:
             return 0.0
             
-    # Caso 2: Formato Decimal com vírgula (Ex: 5,5)
     v = v.replace(',', '.')
     try:
         return float(v)
@@ -152,32 +150,18 @@ def processar_matriz_grafico(todos_dados):
     return pd.DataFrame()
 
 def processar_dados_tma(todos_dados):
-    """
-    Extrai especificamente o bloco O1:AD6 da planilha.
-    O (Excel) = Index 14
-    AD (Excel) = Index 29
-    Linhas 0 a 6
-    """
     try:
         # Fatiamento: Linhas 0 a 6, Colunas 14 a 30 (exclusivo)
         bloco_tma = [linha[14:30] for linha in todos_dados[0:6]]
-        
         if bloco_tma:
-            cabecalho = bloco_tma[0] # Linha 1 do Excel (Datas)
-            dados = bloco_tma[1:]    # Linhas 2-6 (Nomes e valores)
-            
+            cabecalho = bloco_tma[0] 
+            dados = bloco_tma[1:]   
             df = pd.DataFrame(dados)
-            # A primeira coluna do bloco (O) é o Nome/Label
-            # As demais (P em diante) são datas
-            
             nomes_colunas = ['Operador'] + cabecalho[1:]
-            
-            # Ajuste de segurança para colunas
             if len(df.columns) == len(nomes_colunas):
                 df.columns = nomes_colunas
             else:
                 df.columns = nomes_colunas[:len(df.columns)]
-                
             return df
         return pd.DataFrame()
     except Exception as e:
@@ -238,14 +222,38 @@ def mover_tarefa(id_tarefa, novo_status):
 def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
-# --- 8. PAINEL PRINCIPAL ---
+# --- 8. LOGIN (A PARTE QUE FALTAVA) ---
+def login():
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("<h2 style='text-align: center;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
+            usuario_input = st.text_input("Usuário")
+            senha_input = st.text_input("Senha", type="password")
+            
+            if st.button("Entrar", use_container_width=True):
+                if usuario_input in USUARIOS:
+                    dados_user = USUARIOS[usuario_input]
+                    if senha_input == dados_user['senha']:
+                        st.session_state['logado'] = True
+                        st.session_state['usuario_id'] = usuario_input
+                        st.session_state['nome_real'] = dados_user['nome_planilha']
+                        st.session_state['funcao'] = dados_user['funcao']
+                        st.rerun()
+                    else:
+                        st.error("Senha incorreta.")
+                else:
+                    st.error("Usuário não encontrado.")
+
+# --- 9. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
     # Processamento de Dados
     df_grafico_total = processar_matriz_grafico(dados_brutos)
-    df_tma_total = processar_dados_tma(dados_brutos) # NOVO: Dados de TMA
+    df_tma_total = processar_dados_tma(dados_brutos) 
     
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
