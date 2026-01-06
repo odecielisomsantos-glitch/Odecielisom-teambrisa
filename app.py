@@ -24,14 +24,12 @@ def aplicar_tema():
         border_color = "#30363D"
         metric_label = "#C9D1D9"
         
-        # Variáveis do Gráfico
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
         st.session_state['neon_gradient'] = [(0.0, "rgba(0, 255, 127, 0.4)"), (1.0, "#00FF7F")]
         
-        # Variáveis do Menu Lateral (CORREÇÃO AQUI)
-        st.session_state['menu_bg'] = "#161B22" # Fundo igual a sidebar
+        st.session_state['menu_bg'] = "#161B22"
         st.session_state['menu_txt'] = "#E6EDF3"
         st.session_state['menu_hover'] = "#21262d"
         
@@ -48,7 +46,6 @@ def aplicar_tema():
         st.session_state['chart_grid'] = '#E0E0E0'
         st.session_state['neon_gradient'] = [(0.0, "#A8E6CF"), (1.0, "#008000")]
         
-        # Variáveis do Menu Lateral Light
         st.session_state['menu_bg'] = "#F0F2F6"
         st.session_state['menu_txt'] = "#31333F"
         st.session_state['menu_hover'] = "#E0E0E0"
@@ -71,6 +68,23 @@ def aplicar_tema():
         
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
+        }}
+        
+        /* Estilização das Tabs */
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 10px;
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            background-color: {card_bg};
+            border-radius: 5px;
+            padding: 10px 20px;
+            color: {text_color};
+            border: 1px solid {border_color};
+        }}
+        .stTabs [aria-selected="true"] {{
+            background-color: #238636 !important;
+            color: white !important;
+            border: none;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -145,7 +159,6 @@ def processar_matriz_grafico(todos_dados):
     return pd.DataFrame()
 
 def processar_dados_tma_complexo(todos_dados):
-    """Lê O1:AD6 e costura as duas partes da tabela"""
     try:
         datas_p1 = todos_dados[1][14:30] 
         vals_p1 = todos_dados[2][14:30]
@@ -277,20 +290,19 @@ def main():
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
-        # --- ATUALIZAÇÃO: ESTILO DA BARRA LATERAL CORRIGIDO ---
         escolha = option_menu(
             menu_title=None, 
             options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], 
             icons=["graph-up-arrow", "clock-history", "calendar-week", "list-check", "gear"], 
             default_index=0,
             styles={
-                "container": {"background-color": st.session_state['menu_bg'], "padding": "0!important"}, # Fundo dinâmico
+                "container": {"background-color": st.session_state['menu_bg'], "padding": "0!important"}, 
                 "icon": {"color": st.session_state['menu_txt'], "font-size": "16px"},
                 "nav-link": {
                     "font-size": "14px", 
                     "text-align": "left", 
                     "margin":"0px", 
-                    "color": st.session_state['menu_txt'] # Texto dinâmico
+                    "color": st.session_state['menu_txt'] 
                 },
                 "nav-link-selected": {"background-color": "#238636", "color": "white"},
             }
@@ -348,106 +360,105 @@ def main():
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
-        # --- LINHA 2: NOVOS KPIS (TPC E CONFORMIDADE) ---
+        # --- LINHA 2: KPIS TPC E CONFORMIDADE ---
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
-        
-        # Pega dados específicos das células O9 e O13
-        # O9 (Excel) = Index 8 (Python), Coluna 14 (O)
-        # O13 (Excel) = Index 12 (Python), Coluna 14 (O)
         try:
             val_tpc = dados_brutos[8][14] if len(dados_brutos) > 8 else "0"
             val_conf = dados_brutos[12][14] if len(dados_brutos) > 12 else "0"
         except:
             val_tpc, val_conf = "0", "0"
-            
         kpi4.metric("⏱️ TPC - Geral", val_tpc)
         kpi5.metric("✅ Conformidade - Geral", val_conf)
-        
         st.markdown("---")
-        st.markdown(f"**Visão:** {filtro_op}")
-        
-        col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
-        with col_esq:
-            # 1. GRÁFICO DE EVOLUÇÃO
-            st.markdown(f"### 📈 Evolução Mensal")
-            if filtro_op and filtro_met and not df_grafico.empty:
-                if filtro_met == "Geral":
-                    df_f = df_grafico[df_grafico['Operador'] == filtro_op]
-                else:
-                    df_f = df_grafico[(df_grafico['Operador'] == filtro_op) & (df_grafico['Metrica'] == filtro_met)]
+        # === AQUI ESTÁ A "NOVA GUIA" (ABAS DE NAVEGAÇÃO) ===
+        tab_graficos, tab_ranking = st.tabs(["📈 Visão Gráfica", "🏆 Ranking Detalhado"])
 
-                if not df_f.empty:
-                    cols_datas = list(df_grafico.columns[2:])
-                    df_long = pd.melt(df_f, id_vars=['Operador', 'Metrica'], value_vars=cols_datas, var_name='Data', value_name='ValorRaw')
-                    df_long['Performance'] = df_long['ValorRaw'].apply(tratar_porcentagem)
-                    
+        # --- ABA 1: O PAINEL GRÁFICO (O que já existia) ---
+        with tab_graficos:
+            st.markdown(f"**Visão:** {filtro_op}")
+            col_esq, col_dir = st.columns([2, 1.2], gap="large")
+
+            with col_esq:
+                # 1. GRÁFICO DE EVOLUÇÃO
+                st.markdown(f"### 📈 Evolução Mensal")
+                if filtro_op and filtro_met and not df_grafico.empty:
                     if filtro_met == "Geral":
-                        fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
-                        fig.update_layout(legend=dict(orientation="h", y=1.1, title=None))
+                        df_f = df_grafico[df_grafico['Operador'] == filtro_op]
                     else:
-                        fig = px.line(df_long, x='Data', y='Performance', markers=True)
-                        fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
+                        df_f = df_grafico[(df_grafico['Operador'] == filtro_op) & (df_grafico['Metrica'] == filtro_met)]
 
-                    fig.update_layout(
-                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
-                        yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
-                        margin=dict(l=0, r=0, t=20, b=20), height=400
+                    if not df_f.empty:
+                        cols_datas = list(df_grafico.columns[2:])
+                        df_long = pd.melt(df_f, id_vars=['Operador', 'Metrica'], value_vars=cols_datas, var_name='Data', value_name='ValorRaw')
+                        df_long['Performance'] = df_long['ValorRaw'].apply(tratar_porcentagem)
+                        
+                        if filtro_met == "Geral":
+                            fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
+                            fig.update_layout(legend=dict(orientation="h", y=1.1, title=None))
+                        else:
+                            fig = px.line(df_long, x='Data', y='Performance', markers=True)
+                            fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
+
+                        fig.update_layout(
+                            paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                            yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
+                            margin=dict(l=0, r=0, t=20, b=20), height=400
+                        )
+                        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Sem dados.")
+
+                st.markdown("---")
+                
+                # 2. GRÁFICO TMA
+                st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
+                if not df_tma_total.empty:
+                    fig_tma = px.bar(
+                        df_tma_total, 
+                        x='Data', 
+                        y='Minutos',
+                        color='Minutos',
+                        color_continuous_scale=st.session_state['neon_gradient'],
+                        text='MinutosRaw'
                     )
-                    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig_tma.update_traces(
+                        marker_line_width=0, textposition='outside', textfont_size=22, textfont_weight='bold', 
+                        textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F', cliponaxis=False 
+                    )
+                    fig_tma.update_layout(
+                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                        xaxis_title=None, yaxis_title="Minutos (Decimal)", bargap=0.2, height=350,
+                        margin=dict(l=0, r=0, t=20, b=20), coloraxis_showscale=False, hovermode="x unified"
+                    )
+                    fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
+                    fig_tma.update_xaxes(showgrid=False)
+                    st.plotly_chart(fig_tma, use_container_width=True, config={'displayModeBar': False})
                 else:
-                    st.info("Sem dados.")
+                    st.info("Dados de TMA não encontrados.")
 
-            st.markdown("---")
+            with col_dir:
+                renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
+                st.markdown("---")
+                renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
+                renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
+                renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
+
+        # --- ABA 2: A NOVA GUIA LIMPA (RANKING) ---
+        with tab_ranking:
+            st.markdown("### 🏆 Ranking do Time (Visualização Expandida)")
+            st.info("Aqui você tem uma visão limpa e expandida de todos os rankings.")
             
-            # --- GRÁFICO TMA ---
-            st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
-            if not df_tma_total.empty:
-                fig_tma = px.bar(
-                    df_tma_total, 
-                    x='Data', 
-                    y='Minutos',
-                    color='Minutos',
-                    color_continuous_scale=st.session_state['neon_gradient'],
-                    text='MinutosRaw'
-                )
-                
-                fig_tma.update_traces(
-                    marker_line_width=0, 
-                    textposition='outside',
-                    textfont_size=16, 
-                    textfont_weight='bold', 
-                    textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F',
-                    cliponaxis=False 
-                )
-                
-                fig_tma.update_layout(
-                    paper_bgcolor=st.session_state['chart_bg'], 
-                    plot_bgcolor=st.session_state['chart_bg'], 
-                    font_color=st.session_state['chart_font'],
-                    xaxis_title=None, 
-                    yaxis_title="Minutos (Decimal)",
-                    bargap=0.2, 
-                    height=350,
-                    margin=dict(l=0, r=0, t=20, b=20),
-                    coloraxis_showscale=False,
-                    hovermode="x unified"
-                )
-                fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
-                fig_tma.update_xaxes(showgrid=False)
-                
-                st.plotly_chart(fig_tma, use_container_width=True, config={'displayModeBar': False})
-            else:
-                 st.info("Dados de TMA não encontrados na planilha (O1:AD6).")
-
-        with col_dir:
-            renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
-            st.markdown("---")
-            renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
-            renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
-            renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
+            # Reutilizando os rankings aqui em tela cheia para preencher o espaço
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                renderizar_ranking_visual("🏆 Geral", df_tam, "TAM", "Cor_Dinamica")
+                renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
+            with col_r2:
+                renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
+                renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
@@ -468,7 +479,6 @@ def main():
                 if st.form_submit_button("Criar") and titulo:
                     adicionar_tarefa(titulo, cat, nome_usuario)
                     st.rerun()
-
         st.markdown("<br>", unsafe_allow_html=True)
         col_nao, col_ini, col_conc = st.columns(3)
         minhas_tarefas = [t for t in st.session_state['tarefas'] if t['responsavel'] == nome_usuario]
