@@ -4,14 +4,13 @@ import gspread
 import plotly.express as px
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
-import time # Importado para gerar IDs únicos simples
+import time 
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# Inicializa variaveis de estado (Tema e Tarefas)
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Escuro'
-if 'tarefas' not in st.session_state: st.session_state['tarefas'] = [] # Memória das tarefas
+if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
 # --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
@@ -24,13 +23,11 @@ def aplicar_tema():
         card_bg = "#161B22"
         border_color = "#30363D"
         metric_label = "#C9D1D9"
-        # Cores para o Kanban Dark
-        kanban_bg = "#0d1117"
-        card_task_bg = "#21262d"
         
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
+        st.session_state['bar_color'] = '#00B4D8' # Azul Cyan para TMA
         
     else:
         bg_color = "#FFFFFF"
@@ -39,13 +36,11 @@ def aplicar_tema():
         card_bg = "#FFFFFF"
         border_color = "#E0E0E0"
         metric_label = "#555555"
-        # Cores para o Kanban Light
-        kanban_bg = "#F9F9F9"
-        card_task_bg = "#FFFFFF"
         
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
         st.session_state['chart_grid'] = '#E0E0E0'
+        st.session_state['bar_color'] = '#0077B6'
 
     st.markdown(f"""
     <style>
@@ -61,14 +56,8 @@ def aplicar_tema():
         div[data-testid="stMetricValue"] {{ font-size: 28px !important; font-weight: bold; color: #00FF7F !important; }}
         div[data-testid="stMetricLabel"] {{ font-size: 16px !important; color: {metric_label}; }}
         
-        /* Estilo dos Cards de Tarefa */
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {{
-            /* Isso ajuda a estilizar containers aninhados se necessário */
-        }}
-        
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
         
-        /* Ajuste inputs */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color};
         }}
@@ -114,6 +103,37 @@ def tratar_porcentagem(valor):
         except: return 0.0
     return valor
 
+def tratar_tempo_tma(valor):
+    """
+    Converte valores de tempo para FLOAT (Minutos).
+    Aceita: "5,30" (5.3 min) ou "00:05:30" (converte para 5.5 min) ou inteiros.
+    """
+    if not isinstance(valor, str):
+        return float(valor) if valor else 0.0
+    
+    v = valor.strip()
+    if v == '' or v == '-' or v == '#N/A': return 0.0
+    
+    # Caso 1: Formato HH:MM:SS ou MM:SS
+    if ':' in v:
+        partes = v.split(':')
+        try:
+            if len(partes) == 3: # HH:MM:SS
+                h, m, s = map(float, partes)
+                return (h * 60) + m + (s / 60)
+            elif len(partes) == 2: # MM:SS
+                m, s = map(float, partes)
+                return m + (s / 60)
+        except:
+            return 0.0
+            
+    # Caso 2: Formato Decimal com vírgula (Ex: 5,5)
+    v = v.replace(',', '.')
+    try:
+        return float(v)
+    except:
+        return 0.0
+
 # --- 5. PROCESSAMENTO ---
 def processar_matriz_grafico(todos_dados):
     INDICE_CABECALHO = 26 
@@ -130,6 +150,38 @@ def processar_matriz_grafico(todos_dados):
         df = df[df['Operador'].str.strip() != ""]
         return df
     return pd.DataFrame()
+
+def processar_dados_tma(todos_dados):
+    """
+    Extrai especificamente o bloco O1:AD6 da planilha.
+    O (Excel) = Index 14
+    AD (Excel) = Index 29
+    Linhas 0 a 6
+    """
+    try:
+        # Fatiamento: Linhas 0 a 6, Colunas 14 a 30 (exclusivo)
+        bloco_tma = [linha[14:30] for linha in todos_dados[0:6]]
+        
+        if bloco_tma:
+            cabecalho = bloco_tma[0] # Linha 1 do Excel (Datas)
+            dados = bloco_tma[1:]    # Linhas 2-6 (Nomes e valores)
+            
+            df = pd.DataFrame(dados)
+            # A primeira coluna do bloco (O) é o Nome/Label
+            # As demais (P em diante) são datas
+            
+            nomes_colunas = ['Operador'] + cabecalho[1:]
+            
+            # Ajuste de segurança para colunas
+            if len(df.columns) == len(nomes_colunas):
+                df.columns = nomes_colunas
+            else:
+                df.columns = nomes_colunas[:len(df.columns)]
+                
+            return df
+        return pd.DataFrame()
+    except Exception as e:
+        return pd.DataFrame()
 
 def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_range, titulo_coluna):
     lista_limpa = []
@@ -172,38 +224,9 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     else:
         st.caption("Sem dados.")
 
-# --- 7. LOGIN ---
-def login():
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown("<h2 style='text-align: center;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
-            usuario_input = st.text_input("Usuário")
-            senha_input = st.text_input("Senha", type="password")
-            if st.button("Entrar", use_container_width=True):
-                if usuario_input in USUARIOS:
-                    dados_user = USUARIOS[usuario_input]
-                    if senha_input == dados_user['senha']:
-                        st.session_state['logado'] = True
-                        st.session_state['usuario_id'] = usuario_input
-                        st.session_state['nome_real'] = dados_user['nome_planilha']
-                        st.session_state['funcao'] = dados_user['funcao']
-                        st.rerun()
-                    else:
-                        st.error("Senha incorreta.")
-                else:
-                    st.error("Usuário não encontrado.")
-
-# --- 8. FUNÇÕES DE TAREFAS (NOVAS) ---
+# --- 7. TAREFAS ---
 def adicionar_tarefa(titulo, categoria, responsavel):
-    nova_tarefa = {
-        'id': int(time.time() * 1000), # ID único baseado no tempo
-        'titulo': titulo,
-        'categoria': categoria,
-        'responsavel': responsavel,
-        'status': 'Não Iniciado' # Status inicial padrão
-    }
+    nova_tarefa = {'id': int(time.time() * 1000), 'titulo': titulo, 'categoria': categoria, 'responsavel': responsavel, 'status': 'Não Iniciado'}
     st.session_state['tarefas'].append(nova_tarefa)
 
 def mover_tarefa(id_tarefa, novo_status):
@@ -215,12 +238,15 @@ def mover_tarefa(id_tarefa, novo_status):
 def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
-# --- 9. PAINEL PRINCIPAL ---
+# --- 8. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
+    # Processamento de Dados
     df_grafico_total = processar_matriz_grafico(dados_brutos)
+    df_tma_total = processar_dados_tma(dados_brutos) # NOVO: Dados de TMA
+    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -229,14 +255,17 @@ def main():
     perfil = st.session_state['funcao']
     nome_usuario = st.session_state['nome_real']
 
+    # Filtro de Permissão
     if perfil == 'admin':
         df_grafico = df_grafico_total
         df_tam = df_tam_total
         df_n3 = df_n3_total
         df_n2 = df_n2_total
         df_n1 = df_n1_total
+        df_tma = df_tma_total
     else:
         df_grafico = df_grafico_total[df_grafico_total['Operador'] == nome_usuario]
+        df_tma = df_tma_total[df_tma_total['Operador'] == nome_usuario]
         df_tam = df_tam_total[df_tam_total['Colaborador'] == nome_usuario]
         df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
@@ -288,8 +317,6 @@ def main():
             st.rerun()
 
     # --- PÁGINAS ---
-    
-    # 1. PAINEL TÁTICO
     if escolha == "Painel Tático":
         st.title("📊 Painel Tático")
         st.markdown("---")
@@ -307,7 +334,7 @@ def main():
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
 
-        kpi1.metric("🎯 Média do Time (Ref.)", f"{media_time:.1f}%")
+        kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
@@ -317,6 +344,7 @@ def main():
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
+            # 1. GRÁFICO DE EVOLUÇÃO
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -339,12 +367,49 @@ def main():
                     fig.update_layout(
                         paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                         yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
-                        margin=dict(l=0, r=0, t=20, b=20), height=500
+                        margin=dict(l=0, r=0, t=20, b=20), height=400
                     )
                     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Sem dados.")
+
+            st.markdown("---")
+            
+            # 2. NOVO GRÁFICO: TMA (COLUNAS)
+            st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
+            if filtro_op and not df_tma.empty:
+                # Filtra o operador selecionado na tabela de TMA (O1:AD6)
+                df_tma_op = df_tma[df_tma['Operador'] == filtro_op]
+                
+                if not df_tma_op.empty:
+                    # Prepara os dados
+                    cols_tma = list(df_tma.columns[1:]) # Colunas de data
+                    df_tma_long = pd.melt(df_tma_op, id_vars=['Operador'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
+                    
+                    # Converte para minutos numéricos
+                    df_tma_long['Minutos'] = df_tma_long['MinutosRaw'].apply(tratar_tempo_tma)
+                    
+                    # Cria Gráfico de Barras
+                    fig_tma = px.bar(df_tma_long, x='Data', y='Minutos', text='Minutos')
+                    
+                    fig_tma.update_traces(
+                        marker_color=st.session_state['bar_color'], # Azul Cyan do Tema
+                        texttemplate='%{text:.1f}', textposition='outside'
+                    )
+                    
+                    fig_tma.update_layout(
+                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                        yaxis_title="Minutos",
+                        margin=dict(l=0, r=0, t=20, b=20), height=350
+                    )
+                    fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
+                    
+                    st.plotly_chart(fig_tma, use_container_width=True)
+                else:
+                    st.warning(f"O operador {filtro_op} não possui dados na tabela de TMA (O1:AD6).")
+            else:
+                 st.info("Dados de TMA não carregados ou não encontrados.")
 
         with col_dir:
             renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
@@ -355,114 +420,76 @@ def main():
 
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
-        st.markdown("---")
         st.info("🚧 Em desenvolvimento.")
 
     elif escolha == "Calendário":
         st.title("📅 Calendário")
-        st.markdown("---")
         st.info("🚧 Em desenvolvimento.")
 
-    # 4. TAREFAS (KANBAN BOARD)
     elif escolha == "Tarefas":
-        st.title("✅ Gerenciador de Tarefas (Kanban)")
+        st.title("✅ Kanban Board")
         st.markdown("---")
         
-        # --- ÁREA DE CRIAÇÃO ---
-        with st.expander("➕ Adicionar Nova Tarefa", expanded=False):
+        with st.expander("➕ Nova Tarefa", expanded=False):
             with st.form("form_tarefa"):
-                col_inp1, col_inp2 = st.columns([3, 1])
-                with col_inp1:
-                    novo_titulo = st.text_input("Descrição da Tarefa")
-                with col_inp2:
-                    nova_cat = st.selectbox("Categoria", ["Vendas", "Admin", "Reunião", "Pessoal", "Urgente"])
-                
-                enviou = st.form_submit_button("Criar Tarefa")
-                if enviou and novo_titulo:
-                    adicionar_tarefa(novo_titulo, nova_cat, nome_usuario)
-                    st.success("Tarefa criada!")
+                c1, c2 = st.columns([3, 1])
+                with c1: titulo = st.text_input("Descrição")
+                with c2: cat = st.selectbox("Categoria", ["Vendas", "Admin", "Reunião", "Urgente"])
+                if st.form_submit_button("Criar") and titulo:
+                    adicionar_tarefa(titulo, cat, nome_usuario)
                     st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-
-        # --- QUADRO KANBAN (3 COLUNAS) ---
         col_nao, col_ini, col_conc = st.columns(3)
-        
-        # Filtra tarefas do usuário (ou todas se for admin, opcional)
-        # Aqui vou filtrar só as tarefas do usuário logado para privacidade
         minhas_tarefas = [t for t in st.session_state['tarefas'] if t['responsavel'] == nome_usuario]
 
-        # --- COLUNA 1: NÃO INICIADO ---
         with col_nao:
-            st.markdown(f"<div style='background-color:rgba(255, 75, 75, 0.1); padding:10px; border-radius:5px; border:1px solid #FF4B4B; text-align:center;'><b>🔴 Não Iniciado</b></div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            for tarefa in minhas_tarefas:
-                if tarefa['status'] == 'Não Iniciado':
+            st.markdown(f"<div style='border:1px solid #FF4B4B; padding:5px; border-radius:5px; text-align:center; color:#FF4B4B'><b>🔴 A Fazer</b></div><br>", unsafe_allow_html=True)
+            for t in minhas_tarefas:
+                if t['status'] == 'Não Iniciado':
                     with st.container(border=True):
-                        st.markdown(f"**{tarefa['titulo']}**")
-                        st.caption(f"📂 {tarefa['categoria']}")
-                        
-                        # Botão para mover para frente
-                        if st.button("▶️ Iniciar", key=f"btn_ini_{tarefa['id']}", use_container_width=True):
-                            mover_tarefa(tarefa['id'], 'Iniciado')
+                        st.markdown(f"**{t['titulo']}**")
+                        st.caption(f"{t['categoria']}")
+                        if st.button("▶️ Iniciar", key=f"go_{t['id']}", use_container_width=True):
+                            mover_tarefa(t['id'], 'Iniciado')
                             st.rerun()
-                        
-                        # Botão Excluir
-                        if st.button("🗑️", key=f"del_{tarefa['id']}", help="Excluir"):
-                            excluir_tarefa(tarefa['id'])
+                        if st.button("🗑️", key=f"del_{t['id']}"):
+                            excluir_tarefa(t['id'])
                             st.rerun()
 
-        # --- COLUNA 2: INICIADO ---
         with col_ini:
-            st.markdown(f"<div style='background-color:rgba(255, 215, 0, 0.1); padding:10px; border-radius:5px; border:1px solid #FFD700; text-align:center;'><b>🟡 Iniciado</b></div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            for tarefa in minhas_tarefas:
-                if tarefa['status'] == 'Iniciado':
+            st.markdown(f"<div style='border:1px solid #FFD700; padding:5px; border-radius:5px; text-align:center; color:#FFD700'><b>🟡 Em Andamento</b></div><br>", unsafe_allow_html=True)
+            for t in minhas_tarefas:
+                if t['status'] == 'Iniciado':
                     with st.container(border=True):
-                        st.markdown(f"**{tarefa['titulo']}**")
-                        st.caption(f"📂 {tarefa['categoria']}")
-                        
-                        # Botão para mover para frente
-                        if st.button("✅ Concluir", key=f"btn_conc_{tarefa['id']}", use_container_width=True):
-                            mover_tarefa(tarefa['id'], 'Concluído')
+                        st.markdown(f"**{t['titulo']}**")
+                        st.caption(f"{t['categoria']}")
+                        if st.button("✅ Concluir", key=f"fin_{t['id']}", use_container_width=True):
+                            mover_tarefa(t['id'], 'Concluído')
                             st.rerun()
-                        
-                        # Botão para voltar
-                        if st.button("⏪ Voltar", key=f"btn_back_{tarefa['id']}"):
-                            mover_tarefa(tarefa['id'], 'Não Iniciado')
+                        if st.button("⏪ Voltar", key=f"back_{t['id']}"):
+                            mover_tarefa(t['id'], 'Não Iniciado')
                             st.rerun()
 
-        # --- COLUNA 3: CONCLUÍDO ---
         with col_conc:
-            st.markdown(f"<div style='background-color:rgba(0, 255, 127, 0.1); padding:10px; border-radius:5px; border:1px solid #00FF7F; text-align:center;'><b>🟢 Concluído</b></div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            for tarefa in minhas_tarefas:
-                if tarefa['status'] == 'Concluído':
+            st.markdown(f"<div style='border:1px solid #00FF7F; padding:5px; border-radius:5px; text-align:center; color:#00FF7F'><b>🟢 Concluído</b></div><br>", unsafe_allow_html=True)
+            for t in minhas_tarefas:
+                if t['status'] == 'Concluído':
                     with st.container(border=True):
-                        st.markdown(f"~~{tarefa['titulo']}~~") # Riscado
-                        st.caption(f"📂 {tarefa['categoria']}")
-                        
-                        if st.button("🗑️ Arquivar", key=f"arq_{tarefa['id']}", use_container_width=True):
-                            excluir_tarefa(tarefa['id'])
+                        st.markdown(f"~~{t['titulo']}~~")
+                        if st.button("🗑️ Arquivar", key=f"arc_{t['id']}", use_container_width=True):
+                            excluir_tarefa(t['id'])
                             st.rerun()
-                        
-                        # Se quiser voltar
-                        if st.button("⏪ Reabrir", key=f"reopen_{tarefa['id']}"):
-                            mover_tarefa(tarefa['id'], 'Iniciado')
+                        if st.button("⏪ Reabrir", key=f"reopen_{t['id']}"):
+                            mover_tarefa(t['id'], 'Iniciado')
                             st.rerun()
 
-    # 5. GERENCIAMENTO
     elif escolha == "Gerenciamento":
         st.title("⚙️ Gerenciamento")
         st.markdown("---")
         st.subheader("🎨 Aparência")
-        
         tema_atual = st.session_state['tema']
         novo_tema = st.radio("Tema:", ["Escuro", "Claro"], index=0 if tema_atual == "Escuro" else 1, horizontal=True)
-        
         if novo_tema != tema_atual:
             st.session_state['tema'] = novo_tema
             st.rerun()
