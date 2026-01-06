@@ -12,7 +12,7 @@ st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_ic
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Escuro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
-# --- 2. LÓGICA DE TEMAS (DEGRADÊ NEON APLICADO AQUI) ---
+# --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
     tema = st.session_state['tema']
     
@@ -27,10 +27,10 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        # DEGRADÊ NEON PROFISSIONAL (Do escuro para o Brilhante)
+        # DEGRADÊ NEON PROFISSIONAL
         st.session_state['neon_gradient'] = [
-            (0.0, "rgba(0, 255, 127, 0.3)"),  # Base transparente
-            (1.0, "#00FF7F")                  # Topo Neon Puro
+            (0.0, "rgba(0, 255, 127, 0.3)"), 
+            (1.0, "#00FF7F") 
         ]
         
     else:
@@ -141,39 +141,19 @@ def processar_matriz_grafico(todos_dados):
     return pd.DataFrame()
 
 def processar_dados_tma_complexo(todos_dados):
-    """
-    Lê O1:AD6 e costura as duas partes da tabela (01-15 e 16-31)
-    """
+    """Lê O1:AD6 e costura as duas partes da tabela"""
     try:
-        # Fatiamento bruto das linhas relevantes
-        # Excel Row 2 (Index 1) = Datas Parte 1
-        # Excel Row 3 (Index 2) = Valores Parte 1
-        # Excel Row 5 (Index 4) = Datas Parte 2
-        # Excel Row 6 (Index 5) = Valores Parte 2
-        # Colunas O (Index 14) até AD (Index 29)
-        
-        # Parte 1 (01/01 a 16/01 aprox)
         datas_p1 = todos_dados[1][14:30] 
         vals_p1 = todos_dados[2][14:30]
-        
-        # Parte 2 (16/01 a 31/01 aprox)
         datas_p2 = todos_dados[4][14:30]
         vals_p2 = todos_dados[5][14:30]
         
-        # Junta tudo
         datas_full = datas_p1 + datas_p2
         vals_full = vals_p1 + vals_p2
         
-        # Cria DataFrame
-        df = pd.DataFrame({
-            'Data': datas_full,
-            'MinutosRaw': vals_full
-        })
-        
-        # Limpa vazios
+        df = pd.DataFrame({'Data': datas_full, 'MinutosRaw': vals_full})
         df = df[df['Data'].str.strip() != ""]
         df['Minutos'] = df['MinutosRaw'].apply(tratar_tempo_tma)
-        
         return df
     except Exception as e:
         return pd.DataFrame()
@@ -262,7 +242,6 @@ def main():
     if not dados_brutos: st.stop()
 
     df_grafico_total = processar_matriz_grafico(dados_brutos)
-    # AQUI: Usamos a nova função de costura de dados
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
@@ -358,7 +337,6 @@ def main():
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
-            # 1. GRÁFICO DE EVOLUÇÃO
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -390,24 +368,25 @@ def main():
 
             st.markdown("---")
             
-            # --- GRÁFICO TMA: BARRAS NEON DEGRADÊ (DADOS UNIFICADOS) ---
+            # --- GRÁFICO TMA: BARRAS NEON DEGRADÊ (FONTE AUMENTADA) ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
             if not df_tma_total.empty:
-                # Cria gráfico de barras com cor mapeada pelo valor (Minutos)
                 fig_tma = px.bar(
                     df_tma_total, 
                     x='Data', 
                     y='Minutos',
-                    color='Minutos', # Intensidade baseada no valor
+                    color='Minutos',
                     color_continuous_scale=st.session_state['neon_gradient'],
-                    text='MinutosRaw' # Mostra o tempo original (00:09:43) no topo
+                    text='MinutosRaw'
                 )
                 
-                # Visual Flat e Moderno
+                # --- AQUI ESTÁ A MUDANÇA: FONTE MAIOR ---
                 fig_tma.update_traces(
-                    marker_line_width=0, # Sem borda
+                    marker_line_width=0, 
                     textposition='outside',
-                    textfont_size=12
+                    textfont_size=16, # Aumentado para 16
+                    textfont_weight='bold', # Negrito para destaque
+                    cliponaxis=False # Evita cortar o texto
                 )
                 
                 fig_tma.update_layout(
@@ -419,10 +398,9 @@ def main():
                     bargap=0.2, 
                     height=350,
                     margin=dict(l=0, r=0, t=20, b=20),
-                    coloraxis_showscale=False, # Remove barra de cores lateral
+                    coloraxis_showscale=False,
                     hovermode="x unified"
                 )
-                
                 fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
                 fig_tma.update_xaxes(showgrid=False)
                 
