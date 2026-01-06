@@ -24,14 +24,16 @@ def aplicar_tema():
         border_color = "#30363D"
         metric_label = "#C9D1D9"
         
+        # Variáveis do Gráfico
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        # DEGRADÊ NEON (Verde Vibrante)
-        st.session_state['neon_gradient'] = [
-            (0.0, "rgba(0, 255, 127, 0.4)"), 
-            (1.0, "#00FF7F") 
-        ]
+        st.session_state['neon_gradient'] = [(0.0, "rgba(0, 255, 127, 0.4)"), (1.0, "#00FF7F")]
+        
+        # Variáveis do Menu Lateral (CORREÇÃO AQUI)
+        st.session_state['menu_bg'] = "#161B22" # Fundo igual a sidebar
+        st.session_state['menu_txt'] = "#E6EDF3"
+        st.session_state['menu_hover'] = "#21262d"
         
     else:
         bg_color = "#FFFFFF"
@@ -44,10 +46,12 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
         st.session_state['chart_grid'] = '#E0E0E0'
-        st.session_state['neon_gradient'] = [
-            (0.0, "#A8E6CF"),
-            (1.0, "#008000")
-        ]
+        st.session_state['neon_gradient'] = [(0.0, "#A8E6CF"), (1.0, "#008000")]
+        
+        # Variáveis do Menu Lateral Light
+        st.session_state['menu_bg'] = "#F0F2F6"
+        st.session_state['menu_txt'] = "#31333F"
+        st.session_state['menu_hover'] = "#E0E0E0"
 
     st.markdown(f"""
     <style>
@@ -273,12 +277,23 @@ def main():
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
+        # --- ATUALIZAÇÃO: ESTILO DA BARRA LATERAL CORRIGIDO ---
         escolha = option_menu(
             menu_title=None, 
             options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], 
             icons=["graph-up-arrow", "clock-history", "calendar-week", "list-check", "gear"], 
             default_index=0,
-            styles={"container": {"background-color": "transparent"}, "nav-link-selected": {"background-color": "#238636"}}
+            styles={
+                "container": {"background-color": st.session_state['menu_bg'], "padding": "0!important"}, # Fundo dinâmico
+                "icon": {"color": st.session_state['menu_txt'], "font-size": "16px"},
+                "nav-link": {
+                    "font-size": "14px", 
+                    "text-align": "left", 
+                    "margin":"0px", 
+                    "color": st.session_state['menu_txt'] # Texto dinâmico
+                },
+                "nav-link-selected": {"background-color": "#238636", "color": "white"},
+            }
         )
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -314,7 +329,9 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
+        # --- LINHA 1: KPIS ORIGINAIS ---
         kpi1, kpi2, kpi3 = st.columns(3)
+        
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
@@ -331,12 +348,29 @@ def main():
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
+        # --- LINHA 2: NOVOS KPIS (TPC E CONFORMIDADE) ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        kpi4, kpi5 = st.columns(2)
+        
+        # Pega dados específicos das células O9 e O13
+        # O9 (Excel) = Index 8 (Python), Coluna 14 (O)
+        # O13 (Excel) = Index 12 (Python), Coluna 14 (O)
+        try:
+            val_tpc = dados_brutos[8][14] if len(dados_brutos) > 8 else "0"
+            val_conf = dados_brutos[12][14] if len(dados_brutos) > 12 else "0"
+        except:
+            val_tpc, val_conf = "0", "0"
+            
+        kpi4.metric("⏱️ TPC - Geral", val_tpc)
+        kpi5.metric("✅ Conformidade - Geral", val_conf)
+        
         st.markdown("---")
         st.markdown(f"**Visão:** {filtro_op}")
         
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
+            # 1. GRÁFICO DE EVOLUÇÃO
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -368,7 +402,7 @@ def main():
 
             st.markdown("---")
             
-            # --- GRÁFICO TMA: RÓTULOS MAIORES E VISÍVEIS ---
+            # --- GRÁFICO TMA ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
             if not df_tma_total.empty:
                 fig_tma = px.bar(
@@ -380,13 +414,12 @@ def main():
                     text='MinutosRaw'
                 )
                 
-                # CONFIGURAÇÃO DE TEXTO GRANDE E VISÍVEL
                 fig_tma.update_traces(
                     marker_line_width=0, 
                     textposition='outside',
-                    textfont_size=22, # Aumentado para 22px
-                    textfont_weight='bold', # Negrito
-                    textfont_color='#FFFFFF', # Branco Puro para destaque máximo
+                    textfont_size=16, 
+                    textfont_weight='bold', 
+                    textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F',
                     cliponaxis=False 
                 )
                 
