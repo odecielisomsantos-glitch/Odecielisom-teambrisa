@@ -27,7 +27,7 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
-        st.session_state['bar_color'] = '#00B4D8' 
+        st.session_state['bar_color_tma'] = '#00B4D8' # Azul Ciano Neon para TMA
         
     else:
         bg_color = "#FFFFFF"
@@ -40,7 +40,7 @@ def aplicar_tema():
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
         st.session_state['chart_grid'] = '#E0E0E0'
-        st.session_state['bar_color'] = '#0077B6'
+        st.session_state['bar_color_tma'] = '#0077B6' # Azul sólido para Light mode
 
     st.markdown(f"""
     <style>
@@ -58,9 +58,15 @@ def aplicar_tema():
         
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
         
-        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input {{
-            background-color: {card_bg}; color: {text_color}; border-color: {border_color};
+        /* Estilizando Selectbox e Inputs para ficarem profissionais */
+        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
+            background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
+        /* Destaque no hover dos inputs */
+        .stSelectbox div[data-baseweb="select"] > div:hover, .stTextInput input:hover {{
+             border-color: {text_color};
+        }}
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -71,7 +77,6 @@ USUARIOS = {
     "admin": {"senha": "123", "nome_planilha": "Gestor Geral", "funcao": "admin"},
     "damiao": {"senha": "123", "nome_planilha": "DAMIAO EMANUEL DE CARVALHO GOMES", "funcao": "colaborador"},
     "aluizio": {"senha": "123", "nome_planilha": "ALUIZIO BEZERRA JUNIOR", "funcao": "colaborador"},
-    # Adicione os outros aqui...
 }
 
 # --- 4. CONEXÃO E DADOS ---
@@ -141,17 +146,21 @@ def processar_matriz_grafico(todos_dados):
 
 def processar_dados_tma(todos_dados):
     try:
-        # Fatiamento: Linhas 0 a 6, Colunas 14 a 30 (exclusivo)
+        # Fatiamento: Linhas 0 a 6, Colunas 14 a 30 (exclusivo - O1:AD6)
         bloco_tma = [linha[14:30] for linha in todos_dados[0:6]]
         if bloco_tma:
             cabecalho = bloco_tma[0] 
             dados = bloco_tma[1:]   
             df = pd.DataFrame(dados)
-            nomes_colunas = ['Operador'] + cabecalho[1:]
+            # O nome da primeira coluna aqui será 'Métrica' (ex: TMA Voz)
+            nomes_colunas = ['Métrica'] + cabecalho[1:]
             if len(df.columns) == len(nomes_colunas):
                 df.columns = nomes_colunas
             else:
                 df.columns = nomes_colunas[:len(df.columns)]
+            
+            # Remove linhas vazias se houver
+            df = df[df['Métrica'].astype(str).str.strip() != ""]
             return df
         return pd.DataFrame()
     except Exception as e:
@@ -259,14 +268,13 @@ def main():
         df_n3 = df_n3_total
         df_n2 = df_n2_total
         df_n1 = df_n1_total
-        df_tma = df_tma_total
     else:
         df_grafico = df_grafico_total[df_grafico_total['Operador'] == nome_usuario]
-        df_tma = df_tma_total # TODOS VEEM O TMA GERAL
         df_tam = df_tam_total[df_tam_total['Colaborador'] == nome_usuario]
         df_n3 = df_n3_total[df_n3_total['Colaborador'] == nome_usuario]
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
         df_n1 = df_n1_total[df_n1_total['Colaborador'] == nome_usuario]
+        # TMA é global, todos veem o mesmo df_tma_total
 
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
@@ -340,6 +348,7 @@ def main():
         col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
         with col_esq:
+            # 1. GRÁFICO DE EVOLUÇÃO (LINHAS)
             st.markdown(f"### 📈 Evolução Mensal")
             if filtro_op and filtro_met and not df_grafico.empty:
                 if filtro_met == "Geral":
@@ -371,33 +380,54 @@ def main():
 
             st.markdown("---")
             
-            # --- CORREÇÃO AQUI: GRÁFICO TMA SEM FILTRO DE OPERADOR ---
+            # --- GRÁFICO TMA PROFISSIONAL (BARRAS C/ SELETOR) ---
             st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
-            if not df_tma.empty:
-                # AGORA EXIBE TUDO, IGNORANDO 'filtro_op'
-                # Prepara os dados de TODOS os registros em O1:AD6
-                cols_tma = list(df_tma.columns[1:]) 
-                df_tma_long = pd.melt(df_tma, id_vars=['Operador'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
-                
-                # Converte para minutos numéricos
+            if not df_tma_total.empty:
+                # 1. Prepara os dados (Melt)
+                cols_tma = list(df_tma_total.columns[1:]) 
+                df_tma_long = pd.melt(df_tma_total, id_vars=['Métrica'], value_vars=cols_tma, var_name='Data', value_name='MinutosRaw')
                 df_tma_long['Minutos'] = df_tma_long['MinutosRaw'].apply(tratar_tempo_tma)
                 
-                # Cria Gráfico de Barras AGRUPADO por Data e COR por Categoria (Operador/Canal)
-                fig_tma = px.bar(df_tma_long, x='Data', y='Minutos', color='Operador', barmode='group', text='Minutos')
+                # 2. Seletor Minimalista para Filtrar a Métrica
+                col_sel, _ = st.columns([2,3]) # Coluna menor para o seletor ficar elegante
+                with col_sel:
+                    metricas_disponiveis = df_tma_long['Métrica'].unique()
+                    metrica_selecionada = st.selectbox("Selecione a Métrica de TMA:", metricas_disponiveis, index=0)
                 
+                # 3. Filtra os dados com base na seleção
+                df_filtered = df_tma_long[df_tma_long['Métrica'] == metrica_selecionada]
+
+                # 4. Gráfico de Barras Profissional
+                fig_tma = px.bar(
+                    df_filtered, 
+                    x='Data', 
+                    y='Minutos', 
+                    color_discrete_sequence=[st.session_state['bar_color_tma']] # Usa a cor do tema
+                )
+                
+                # Estilização Fina
                 fig_tma.update_traces(
-                    texttemplate='%{text:.1f}', textposition='outside'
+                    marker_line_width=0, # Remove bordas das barras para look flat
+                    opacity=0.9,         # Leve transparência
+                    hovertemplate='<b>Data:</b> %{x}<br><b>TMA:</b> %{y:.2f} min<extra></extra>' # Tooltip limpo
                 )
                 
                 fig_tma.update_layout(
-                    paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                    paper_bgcolor=st.session_state['chart_bg'], 
+                    plot_bgcolor=st.session_state['chart_bg'], 
+                    font_color=st.session_state['chart_font'],
+                    xaxis_title=None, # Remove rótulo "Data" (redundante)
                     yaxis_title="Minutos",
-                    legend=dict(orientation="h", y=1.1, title=None), # Legenda em cima
-                    margin=dict(l=0, r=0, t=20, b=20), height=350
+                    bargap=0.2, # Espaçamento elegante entre barras
+                    margin=dict(l=0, r=0, t=10, b=10), # Margens justas
+                    height=350,
+                    hovermode="x unified"
                 )
-                fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
-                
-                st.plotly_chart(fig_tma, use_container_width=True)
+                # Linhas de grade sutis apenas na horizontal
+                fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
+                fig_tma.update_xaxes(showgrid=False)
+
+                st.plotly_chart(fig_tma, use_container_width=True, config={'displayModeBar': False})
             else:
                  st.info("Dados de TMA não encontrados na planilha (O1:AD6).")
 
