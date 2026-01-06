@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import plotly.express as px
+import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 import time 
@@ -33,6 +34,13 @@ def aplicar_tema():
         st.session_state['menu_txt'] = "#E6EDF3"
         st.session_state['menu_hover'] = "#21262d"
         
+        # Cores do Semáforo (Monitoramento)
+        st.session_state['colorscale_monit'] = [
+            [0.0, "#FF4B4B"], # Vermelho (Ruim)
+            [0.5, "#FFD700"], # Amarelo (Médio)
+            [1.0, "#00FF7F"]  # Verde (Bom)
+        ]
+        
     else:
         bg_color = "#FFFFFF"
         sidebar_bg = "#F0F2F6"
@@ -49,6 +57,12 @@ def aplicar_tema():
         st.session_state['menu_bg'] = "#F0F2F6"
         st.session_state['menu_txt'] = "#31333F"
         st.session_state['menu_hover'] = "#E0E0E0"
+        
+        st.session_state['colorscale_monit'] = [
+            [0.0, "#D32F2F"], 
+            [0.5, "#FBC02D"], 
+            [1.0, "#388E3C"]
+        ]
 
     st.markdown(f"""
     <style>
@@ -70,21 +84,11 @@ def aplicar_tema():
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
-        /* Estilização das Tabs */
-        .stTabs [data-baseweb="tab-list"] {{
-            gap: 10px;
-        }}
         .stTabs [data-baseweb="tab"] {{
-            background-color: {card_bg};
-            border-radius: 5px;
-            padding: 10px 20px;
-            color: {text_color};
-            border: 1px solid {border_color};
+            background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
         }}
         .stTabs [aria-selected="true"] {{
-            background-color: #238636 !important;
-            color: white !important;
-            border: none;
+            background-color: #238636 !important; color: white !important;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -141,6 +145,14 @@ def tratar_tempo_tma(valor):
     try: return float(v)
     except: return 0.0
 
+def tratar_numero_inteiro(valor):
+    """Converte string para int (ex: quantidade de diamantes)"""
+    if not isinstance(valor, str): return valor
+    v = valor.strip()
+    if v == '' or v == '-' or v == '#N/A': return 0
+    try: return int(float(v.replace(',', '.')))
+    except: return 0
+
 # --- 5. PROCESSAMENTO DE DADOS ---
 def processar_matriz_grafico(todos_dados):
     INDICE_CABECALHO = 26 
@@ -172,6 +184,42 @@ def processar_dados_tma_complexo(todos_dados):
         df = df[df['Data'].str.strip() != ""]
         df['Minutos'] = df['MinutosRaw'].apply(tratar_tempo_tma)
         return df
+    except Exception as e:
+        return pd.DataFrame()
+
+def processar_monitoramento_diamantes(todos_dados):
+    """
+    Lê o intervalo O16:AT18
+    Linha 16 (Index 15): Cabeçalho de Datas
+    Linhas 17-18 (Index 16-17): Dados dos Operadores Monitorados
+    Colunas O (14) até AT (45)
+    """
+    try:
+        # Pega as 3 linhas relevantes
+        bloco = [linha[14:46] for linha in todos_dados[15:18]] 
+        
+        if not bloco: return pd.DataFrame()
+
+        # Cabeçalho (Datas) está na primeira linha do bloco, ignorando a coluna 0 (Nome)
+        datas = bloco[0][1:] 
+        
+        dados_processados = []
+        
+        # Itera sobre os operadores (linhas 1 e 2 do bloco)
+        for linha in bloco[1:]:
+            nome = linha[0]
+            valores = linha[1:]
+            
+            # Cria um registro para cada dia
+            for data, val in zip(datas, valores):
+                if data.strip() != "":
+                    dados_processados.append({
+                        'Operador': nome,
+                        'Data': data,
+                        'Diamantes': tratar_numero_inteiro(val)
+                    })
+                    
+        return pd.DataFrame(dados_processados)
     except Exception as e:
         return pd.DataFrame()
 
@@ -260,6 +308,8 @@ def main():
 
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
+    # NOVO: DADOS DE MONITORAMENTO
+    df_monit = processar_monitoramento_diamantes(dados_brutos)
     
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
@@ -341,9 +391,8 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
-        # --- LINHA 1: KPIS ORIGINAIS ---
+        # LINHA 1: KPIS
         kpi1, kpi2, kpi3 = st.columns(3)
-        
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
@@ -360,7 +409,7 @@ def main():
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
-        # --- LINHA 2: KPIS TPC E CONFORMIDADE ---
+        # LINHA 2: TPC/CONF
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
         try:
@@ -372,16 +421,13 @@ def main():
         kpi5.metric("✅ Conformidade - Geral", val_conf)
         st.markdown("---")
 
-        # === AQUI ESTÁ A "NOVA GUIA" (ABAS DE NAVEGAÇÃO) ===
         tab_graficos, tab_ranking = st.tabs(["📈 Visão Gráfica", "🏆 Ranking Detalhado"])
 
-        # --- ABA 1: O PAINEL GRÁFICO (O que já existia) ---
         with tab_graficos:
             st.markdown(f"**Visão:** {filtro_op}")
             col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
             with col_esq:
-                # 1. GRÁFICO DE EVOLUÇÃO
                 st.markdown(f"### 📈 Evolução Mensal")
                 if filtro_op and filtro_met and not df_grafico.empty:
                     if filtro_met == "Geral":
@@ -413,7 +459,6 @@ def main():
 
                 st.markdown("---")
                 
-                # 2. GRÁFICO TMA
                 st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
                 if not df_tma_total.empty:
                     fig_tma = px.bar(
@@ -439,6 +484,41 @@ def main():
                 else:
                     st.info("Dados de TMA não encontrados.")
 
+                # --- NOVO QUADRO: MONITORAMENTO DE DIAMANTES (ÁREA VERMELHA) ---
+                st.markdown("---")
+                st.markdown("### 💎 Monitoramento de Performance (Diamantes)")
+                
+                if not df_monit.empty:
+                    # Cria o Gráfico de Heatmap (Semáforo)
+                    # Mapeia cores: 0-3 (Ruim/Vermelho), 4-7 (Médio/Amarelo), 8+ (Bom/Verde)
+                    # Usamos color continuous scale para simular isso visualmente
+                    
+                    fig_monit = px.density_heatmap(
+                        df_monit, 
+                        x='Data', 
+                        y='Operador', 
+                        z='Diamantes',
+                        text_auto=True, # Mostra o número dentro do quadrado
+                        color_continuous_scale=st.session_state['colorscale_monit']
+                    )
+                    
+                    fig_monit.update_layout(
+                        paper_bgcolor=st.session_state['chart_bg'], 
+                        plot_bgcolor=st.session_state['chart_bg'], 
+                        font_color=st.session_state['chart_font'],
+                        xaxis_title=None, 
+                        yaxis_title=None,
+                        coloraxis_showscale=False, # Remove a barra lateral de cor
+                        height=250, # Altura compacta para 2 operadores
+                        margin=dict(l=0, r=0, t=30, b=10)
+                    )
+                    fig_monit.update_xaxes(showgrid=False)
+                    fig_monit.update_yaxes(showgrid=False)
+                    
+                    st.plotly_chart(fig_monit, use_container_width=True, config={'displayModeBar': False})
+                else:
+                    st.info("Sem dados de monitoramento no intervalo O16:AT18.")
+
             with col_dir:
                 renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
                 st.markdown("---")
@@ -446,12 +526,8 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-        # --- ABA 2: A NOVA GUIA LIMPA (RANKING) ---
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (Visualização Expandida)")
-            st.info("Aqui você tem uma visão limpa e expandida de todos os rankings.")
-            
-            # Reutilizando os rankings aqui em tela cheia para preencher o espaço
             col_r1, col_r2 = st.columns(2)
             with col_r1:
                 renderizar_ranking_visual("🏆 Geral", df_tam, "TAM", "Cor_Dinamica")
