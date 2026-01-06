@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import gspread
 import plotly.express as px
-import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 import time 
@@ -34,13 +33,6 @@ def aplicar_tema():
         st.session_state['menu_txt'] = "#E6EDF3"
         st.session_state['menu_hover'] = "#21262d"
         
-        # Cores do Semáforo (Monitoramento)
-        st.session_state['colorscale_monit'] = [
-            [0.0, "#FF4B4B"], # Vermelho (Ruim)
-            [0.5, "#FFD700"], # Amarelo (Médio)
-            [1.0, "#00FF7F"]  # Verde (Bom)
-        ]
-        
     else:
         bg_color = "#FFFFFF"
         sidebar_bg = "#F0F2F6"
@@ -57,12 +49,19 @@ def aplicar_tema():
         st.session_state['menu_bg'] = "#F0F2F6"
         st.session_state['menu_txt'] = "#31333F"
         st.session_state['menu_hover'] = "#E0E0E0"
-        
-        st.session_state['colorscale_monit'] = [
-            [0.0, "#D32F2F"], 
-            [0.5, "#FBC02D"], 
-            [1.0, "#388E3C"]
-        ]
+
+    # --- REGRA DE CORES DIAMANTE (SEMÁFORO RÍGIDO) ---
+    # 0% a 69% (0.0 a 0.69) -> Laranja
+    # 70% a 79% (0.69 a 0.79) -> Amarelo
+    # 80% a 100% (0.80 a 1.0) -> Verde Neon
+    st.session_state['colorscale_monit'] = [
+        [0.0, "#FF6D00"],  # Laranja (Início)
+        [0.69, "#FF6D00"], # Laranja (Até 69%)
+        [0.69, "#FFD700"], # Amarelo (Começa em 70%)
+        [0.79, "#FFD700"], # Amarelo (Até 79%)
+        [0.79, "#00FF7F"], # Verde (Começa em 80%)
+        [1.0, "#00FF7F"]   # Verde (Até 100%)
+    ]
 
     st.markdown(f"""
     <style>
@@ -146,10 +145,9 @@ def tratar_tempo_tma(valor):
     except: return 0.0
 
 def tratar_numero_inteiro(valor):
-    """Converte string para int (ex: quantidade de diamantes)"""
     if not isinstance(valor, str): return valor
     v = valor.strip()
-    if v == '' or v == '-' or v == '#N/A': return 0
+    if v == '' or v == '-' or v == '#N/A' or v == '': return 0
     try: return int(float(v.replace(',', '.')))
     except: return 0
 
@@ -176,10 +174,8 @@ def processar_dados_tma_complexo(todos_dados):
         vals_p1 = todos_dados[2][14:30]
         datas_p2 = todos_dados[4][14:30]
         vals_p2 = todos_dados[5][14:30]
-        
         datas_full = datas_p1 + datas_p2
         vals_full = vals_p1 + vals_p2
-        
         df = pd.DataFrame({'Data': datas_full, 'MinutosRaw': vals_full})
         df = df[df['Data'].str.strip() != ""]
         df['Minutos'] = df['MinutosRaw'].apply(tratar_tempo_tma)
@@ -188,29 +184,15 @@ def processar_dados_tma_complexo(todos_dados):
         return pd.DataFrame()
 
 def processar_monitoramento_diamantes(todos_dados):
-    """
-    Lê o intervalo O16:AT18
-    Linha 16 (Index 15): Cabeçalho de Datas
-    Linhas 17-18 (Index 16-17): Dados dos Operadores Monitorados
-    Colunas O (14) até AT (45)
-    """
+    """Lê o intervalo O16:AT18"""
     try:
-        # Pega as 3 linhas relevantes
         bloco = [linha[14:46] for linha in todos_dados[15:18]] 
-        
         if not bloco: return pd.DataFrame()
-
-        # Cabeçalho (Datas) está na primeira linha do bloco, ignorando a coluna 0 (Nome)
         datas = bloco[0][1:] 
-        
         dados_processados = []
-        
-        # Itera sobre os operadores (linhas 1 e 2 do bloco)
         for linha in bloco[1:]:
             nome = linha[0]
             valores = linha[1:]
-            
-            # Cria um registro para cada dia
             for data, val in zip(datas, valores):
                 if data.strip() != "":
                     dados_processados.append({
@@ -218,7 +200,6 @@ def processar_monitoramento_diamantes(todos_dados):
                         'Data': data,
                         'Diamantes': tratar_numero_inteiro(val)
                     })
-                    
         return pd.DataFrame(dados_processados)
     except Exception as e:
         return pd.DataFrame()
@@ -308,7 +289,6 @@ def main():
 
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
-    # NOVO: DADOS DE MONITORAMENTO
     df_monit = processar_monitoramento_diamantes(dados_brutos)
     
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
@@ -349,10 +329,7 @@ def main():
                 "container": {"background-color": st.session_state['menu_bg'], "padding": "0!important"}, 
                 "icon": {"color": st.session_state['menu_txt'], "font-size": "16px"},
                 "nav-link": {
-                    "font-size": "14px", 
-                    "text-align": "left", 
-                    "margin":"0px", 
-                    "color": st.session_state['menu_txt'] 
+                    "font-size": "14px", "text-align": "left", "margin":"0px", "color": st.session_state['menu_txt'] 
                 },
                 "nav-link-selected": {"background-color": "#238636", "color": "white"},
             }
@@ -391,7 +368,6 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
-        # LINHA 1: KPIS
         kpi1, kpi2, kpi3 = st.columns(3)
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
@@ -409,7 +385,6 @@ def main():
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
-        # LINHA 2: TPC/CONF
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
         try:
@@ -484,40 +459,35 @@ def main():
                 else:
                     st.info("Dados de TMA não encontrados.")
 
-                # --- NOVO QUADRO: MONITORAMENTO DE DIAMANTES (ÁREA VERMELHA) ---
                 st.markdown("---")
                 st.markdown("### 💎 Monitoramento de Performance (Diamantes)")
                 
                 if not df_monit.empty:
-                    # Cria o Gráfico de Heatmap (Semáforo)
-                    # Mapeia cores: 0-3 (Ruim/Vermelho), 4-7 (Médio/Amarelo), 8+ (Bom/Verde)
-                    # Usamos color continuous scale para simular isso visualmente
-                    
+                    # CONFIGURAÇÃO DE SEMÁFORO RÍGIDO (Laranja, Amarelo, Verde)
                     fig_monit = px.density_heatmap(
                         df_monit, 
                         x='Data', 
                         y='Operador', 
                         z='Diamantes',
-                        text_auto=True, # Mostra o número dentro do quadrado
-                        color_continuous_scale=st.session_state['colorscale_monit']
+                        text_auto=True,
+                        color_continuous_scale=st.session_state['colorscale_monit'],
+                        zmin=0,  # TRAVA O MÍNIMO EM 0
+                        zmax=42  # TRAVA O MÁXIMO EM 42 (REGRA DE NEGÓCIO)
                     )
                     
                     fig_monit.update_layout(
                         paper_bgcolor=st.session_state['chart_bg'], 
                         plot_bgcolor=st.session_state['chart_bg'], 
                         font_color=st.session_state['chart_font'],
-                        xaxis_title=None, 
-                        yaxis_title=None,
-                        coloraxis_showscale=False, # Remove a barra lateral de cor
-                        height=250, # Altura compacta para 2 operadores
-                        margin=dict(l=0, r=0, t=30, b=10)
+                        xaxis_title=None, yaxis_title=None,
+                        coloraxis_showscale=False, 
+                        height=250, margin=dict(l=0, r=0, t=30, b=10)
                     )
                     fig_monit.update_xaxes(showgrid=False)
                     fig_monit.update_yaxes(showgrid=False)
-                    
                     st.plotly_chart(fig_monit, use_container_width=True, config={'displayModeBar': False})
                 else:
-                    st.info("Sem dados de monitoramento no intervalo O16:AT18.")
+                    st.info("Sem dados de monitoramento.")
 
             with col_dir:
                 renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
