@@ -50,17 +50,21 @@ def aplicar_tema():
         st.session_state['menu_txt'] = "#31333F"
         st.session_state['menu_hover'] = "#E0E0E0"
 
-    # --- REGRA DE CORES DIAMANTE (SEMÁFORO RÍGIDO) ---
-    # 0% a 69% (0.0 a 0.69) -> Laranja
-    # 70% a 79% (0.69 a 0.79) -> Amarelo
-    # 80% a 100% (0.80 a 1.0) -> Verde Neon
+    # --- REGRA DE CORES MONITORAMENTO (SEMÁFORO ESPECÍFICO) ---
+    # 0 Diamantes (Exatamente 0.0) -> Laranja (#FF6D00)
+    # 1 a 29 Diamantes (0.01 a 0.69) -> Vermelho (#FF4B4B)
+    # 30 a 33 Diamantes (0.70 a 0.79) -> Amarelo (#FFD700)
+    # 34 a 42 Diamantes (0.80 a 1.0) -> Verde Neon (#00FF7F)
+    
     st.session_state['colorscale_monit'] = [
-        [0.0, "#FF6D00"],  # Laranja (Início)
-        [0.69, "#FF6D00"], # Laranja (Até 69%)
-        [0.69, "#FFD700"], # Amarelo (Começa em 70%)
-        [0.79, "#FFD700"], # Amarelo (Até 79%)
-        [0.79, "#00FF7F"], # Verde (Começa em 80%)
-        [1.0, "#00FF7F"]   # Verde (Até 100%)
+        [0.0, "#FF6D00"],   # 0: Começa Laranja
+        [0.01, "#FF6D00"],  # 0: Termina Laranja (Trava o zero)
+        [0.01, "#FF4B4B"],  # 1+: Começa Vermelho
+        [0.69, "#FF4B4B"],  # Até 69%: Vermelho
+        [0.69, "#FFD700"],  # 70%: Começa Amarelo
+        [0.79, "#FFD700"],  # Até 79%: Amarelo
+        [0.79, "#00FF7F"],  # 80%: Começa Verde
+        [1.0, "#00FF7F"]    # Até 100%: Verde
     ]
 
     st.markdown(f"""
@@ -184,7 +188,6 @@ def processar_dados_tma_complexo(todos_dados):
         return pd.DataFrame()
 
 def processar_monitoramento_diamantes(todos_dados):
-    """Lê o intervalo O16:AT18"""
     try:
         bloco = [linha[14:46] for linha in todos_dados[15:18]] 
         if not bloco: return pd.DataFrame()
@@ -470,7 +473,7 @@ def main():
                         z='Diamantes',
                         text_auto=True,
                         color_continuous_scale=st.session_state['colorscale_monit'],
-                        range_color=[0, 42] # CORREÇÃO CRUCIAL AQUI
+                        range_color=[0, 42]
                     )
                     
                     fig_monit.update_layout(
