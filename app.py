@@ -7,20 +7,16 @@ from streamlit_option_menu import option_menu
 import time 
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
-# Define a configuração inicial da página, incluindo título, ícone e layout.
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# Define o tema padrão como 'Claro' se ainda não estiver definido na sessão.
+# MUDANÇA: Padrão inicia como 'Claro'
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
-# Inicializa a lista de tarefas se ainda não existir.
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
 # --- 2. LÓGICA DE TEMAS ---
-# Função para aplicar o tema (Claro ou Escuro) escolhido pelo usuário.
 def aplicar_tema():
     tema = st.session_state['tema']
     
-    # Definição das variáveis de cor baseadas no tema
     if tema == 'Escuro':
         bg_color = "#0E1117"
         sidebar_bg = "#161B22"
@@ -34,12 +30,11 @@ def aplicar_tema():
         st.session_state['chart_font'] = '#E6EDF3'
         st.session_state['chart_grid'] = '#30363D'
         st.session_state['neon_gradient'] = [(0.0, "rgba(0, 255, 127, 0.4)"), (1.0, "#00FF7F")]
-        
         st.session_state['menu_bg'] = "#161B22"
         st.session_state['menu_txt'] = "#E6EDF3"
         
     else: # TEMA CLARO (DEFAULT)
-        bg_color = "#F8F9FA" # Cinza bem clarinho pro fundo
+        bg_color = "#F8F9FA"
         sidebar_bg = "#FFFFFF"
         text_color = "#212529"
         card_bg = "#FFFFFF"
@@ -51,141 +46,124 @@ def aplicar_tema():
         st.session_state['chart_font'] = '#212529'
         st.session_state['chart_grid'] = '#E9ECEF'
         st.session_state['neon_gradient'] = [(0.0, "#A8E6CF"), (1.0, "#008000")]
-        
         st.session_state['menu_bg'] = "#FFFFFF"
         st.session_state['menu_txt'] = "#212529"
 
-    # Regra de Cores do Monitoramento
-    # Define a escala de cores para o gráfico de monitoramento.
-    # A imagem mostra a necessidade de uma regra de negócio para travar o máximo em 42 diamantes.
     st.session_state['colorscale_monit'] = [
         [0.0, "#FF6D00"], [0.01, "#FF6D00"], [0.01, "#FF4B4B"], [0.69, "#FF4B4B"], 
         [0.69, "#FFD700"], [0.79, "#FFD700"], [0.79, "#00FF7F"], [1.0, "#00FF7F"]
     ]
 
-    # CSS GLOBAL
-    # Aplica estilos CSS globais para a aplicação.
     st.markdown(f"""
     <style>
-        /* Fundo e Texto Geral */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
-        
-        /* Tipografia */
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* Cards KPI */
+        /* KPI Cards */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg}; 
-            border: 1px solid {border_color};
-            padding: 15px; 
-            border-radius: 10px; 
-            box-shadow: 0 2px 5px {shadow};
+            background-color: {card_bg}; border: 1px solid {border_color};
+            padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px {shadow};
         }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
         div[data-testid="stMetricLabel"] {{ font-size: 18px !important; font-weight: 700 !important; color: {metric_label}; }}
         
-        /* Inputs e Selects */
+        .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
+        
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
-            background-color: {card_bg}; 
-            color: {text_color}; 
-            border-color: {border_color}; 
-            border-radius: 8px;
+            background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
-        /* Abas (Tabs) */
+        /* Tabs Style */
         .stTabs [data-baseweb="tab"] {{
-            background-color: {card_bg}; 
-            border: 1px solid {border_color}; 
-            color: {text_color};
-            font-size: 16px !important; 
-            font-weight: 600;
-            border-radius: 5px;
+            background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
+            font-size: 16px !important; font-weight: 600; border-radius: 5px;
         }}
         .stTabs [aria-selected="true"] {{
-            background-color: #00FF7F !important; 
-            color: #000000 !important;
-            border-color: #00FF7F !important;
+            background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* --- ESTILO DOS CARDS DE RANKING (SCROLL HORIZONTAL) --- */
-        /* Container que permite o scroll horizontal dos cards */
+        /* --- CSS DOS CARDS DE RANKING --- */
         .scrolling-wrapper {{
             display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
             padding: 20px 10px;
             gap: 20px;
-            -webkit-overflow-scrolling: touch; /* Scroll suave no mobile */
+            -webkit-overflow-scrolling: touch;
+            align-items: stretch;
         }}
         
-        /* Estilo individual de cada card */
-        /* As imagens mostram o card de ranking com um layout específico: ícone de medalha, avatar, nome e pontuação colorida. O CSS abaixo define esse estilo. */
         .ranking-card {{
-            flex: 0 0 auto; /* Garante que os cards não encolham e fiquem lado a lado */
-            width: 200px;
-            height: 280px;
+            flex: 0 0 auto;
+            width: 220px;
             background-color: {card_bg};
             border: 1px solid {border_color};
-            border-radius: 15px;
-            box-shadow: 0 4px 8px {shadow};
+            border-radius: 16px;
+            box-shadow: 0 4px 12px {shadow};
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 15px;
-            transition: transform 0.3s ease; /* Efeito de hover suave */
+            padding: 20px 15px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            margin-top: 15px; /* Espaço para o ícone flutuante */
         }}
         
         .ranking-card:hover {{
-            transform: scale(1.05); /* Aumenta ligeiramente o card ao passar o mouse */
+            transform: translateY(-5px);
             border-color: #00FF7F;
+            box-shadow: 0 8px 16px rgba(0, 255, 127, 0.2);
         }}
         
-        /* Ícone da medalha no topo do card */
         .medal-icon {{
-            font-size: 40px;
-            margin-bottom: -15px; /* Sobrepõe levemente o avatar */
+            font-size: 42px;
+            position: absolute;
+            top: -20px; /* Flutua acima do card */
             z-index: 10;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
         }}
         
-        /* Imagem do avatar */
+        .avatar-container {{
+            margin-top: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }}
+        
         .avatar-img {{
             width: 100px;
             height: 100px;
-            border-radius: 50%; /* Deixa a imagem redonda */
+            border-radius: 50%;
             object-fit: cover;
-            border: 4px solid {card_bg};
-            box-shadow: 0 3px 6px {shadow};
-            margin-bottom: 15px;
+            border: 4px solid {card_bg}; /* Borda para separar do fundo */
+            box-shadow: 0 0 0 3px #00B4D8; /* Anel colorido externo (Ciano) */
         }}
         
-        /* Texto com o nome do colaborador */
         .name-text {{
             font-size: 15px;
             font-weight: 700;
             color: {text_color};
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.3;
             margin-bottom: 10px;
-            height: 40px; /* Altura fixa para alinhar nomes de tamanhos diferentes */
+            height: 40px; 
             display: flex;
             align-items: center;
             justify-content: center;
+            text-transform: uppercase;
         }}
         
-        /* Texto com a pontuação */
         .score-text {{
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 900;
+            margin-top: auto; /* Empurra para o final */
         }}
         
-        /* Scrollbar customizada para o container horizontal */
-        .scrolling-wrapper::-webkit-scrollbar {{ height: 8px; }}
+        /* Scrollbar */
+        .scrolling-wrapper::-webkit-scrollbar {{ height: 10px; }}
         .scrolling-wrapper::-webkit-scrollbar-track {{ background: transparent; }}
-        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #cccccc; border-radius: 20px; }}
+        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #00FF7F; border-radius: 20px; }}
         
     </style>
     """, unsafe_allow_html=True)
@@ -193,8 +171,6 @@ def aplicar_tema():
 aplicar_tema()
 
 # --- 3. CONFIGURAÇÃO DE USUÁRIOS ---
-# Dicionário com os usuários, senhas e informações de acesso.
-# O painel mostra o usuário logado.
 USUARIOS = {
     "admin": {"senha": "123", "nome_planilha": "Gestor Geral", "funcao": "admin"},
     "damiao": {"senha": "123", "nome_planilha": "DAMIAO EMANUEL DE CARVALHO GOMES", "funcao": "colaborador"},
@@ -202,7 +178,6 @@ USUARIOS = {
 }
 
 # --- 4. CONEXÃO E DADOS ---
-# Função para conectar ao Google Sheets usando as credenciais do Streamlit secrets.
 @st.cache_resource
 def conectar_google_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -212,7 +187,6 @@ def conectar_google_sheets():
     gc = gspread.authorize(credentials)
     return gc
 
-# Função para obter todos os dados da planilha, com cache para performance.
 @st.cache_data(ttl=600)
 def obter_dados_completos():
     try:
@@ -224,7 +198,6 @@ def obter_dados_completos():
         st.error(f"Erro na conexão: {e}")
         return []
 
-# Funções auxiliares para tratamento de dados (porcentagem, tempo, números inteiros).
 def tratar_porcentagem(valor):
     if isinstance(valor, str):
         v = valor.replace('%', '').replace(',', '.').strip()
@@ -255,10 +228,7 @@ def tratar_numero_inteiro(valor):
     except: return 0
 
 # --- 5. PROCESSAMENTO ---
-# Funções para processar os dados brutos da planilha em DataFrames úteis para gráficos e tabelas.
-
 def processar_matriz_grafico(todos_dados):
-    # Processa a matriz principal de dados para o gráfico de evolução mensal.
     INDICE_CABECALHO = 26 
     if len(todos_dados) > INDICE_CABECALHO:
         cabecalho = todos_dados[INDICE_CABECALHO]
@@ -275,8 +245,6 @@ def processar_matriz_grafico(todos_dados):
     return pd.DataFrame()
 
 def processar_dados_tma_complexo(todos_dados):
-    # Processa os dados de TMA (Tempo Médio de Atendimento).
-    # As imagens mostram gráficos e tabelas de TMA.
     try:
         datas_p1 = todos_dados[1][14:30] 
         vals_p1 = todos_dados[2][14:30]
@@ -292,8 +260,6 @@ def processar_dados_tma_complexo(todos_dados):
         return pd.DataFrame()
 
 def processar_monitoramento_diamantes(todos_dados):
-    # Processa os dados de monitoramento de performance (diamantes).
-    # A imagem mostra um erro relacionado ao processamento de dados de monitoramento.
     try:
         bloco = [linha[14:46] for linha in todos_dados[15:18]] 
         if not bloco: return pd.DataFrame()
@@ -314,8 +280,6 @@ def processar_monitoramento_diamantes(todos_dados):
         return pd.DataFrame()
 
 def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_range, titulo_coluna):
-    # Processa os dados para as tabelas de ranking (TAM, Nível 1, 2, 3).
-    # A imagem mostra as tabelas de ranking por nível.
     lista_limpa = []
     for i in linhas_range:
         if i < len(todos_dados):
@@ -332,14 +296,11 @@ def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_ra
     return df
 
 def definir_cor_pela_nota(valor):
-    # Define a cor da nota com base em limiares.
-    if valor >= 90: return '#00FF7F' # Verde
-    elif valor >= 70: return '#FFD700' # Amarelo
-    else: return '#FF4B4B' # Vermelho
+    if valor >= 90: return '#00FF7F' 
+    elif valor >= 70: return '#FFD700' 
+    else: return '#FF4B4B'
 
 # --- 6. VISUALIZAÇÃO ---
-# Função para renderizar os gráficos de barras horizontais de ranking.
-# As imagens mostram os gráficos de ranking visual.
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -364,7 +325,6 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
         st.caption("Sem dados.")
 
 # --- 7. TAREFAS ---
-# Funções para gerenciar o quadro Kanban de tarefas.
 def adicionar_tarefa(titulo, categoria, responsavel):
     nova_tarefa = {'id': int(time.time() * 1000), 'titulo': titulo, 'categoria': categoria, 'responsavel': responsavel, 'status': 'Não Iniciado'}
     st.session_state['tarefas'].append(nova_tarefa)
@@ -379,8 +339,6 @@ def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
 # --- 8. LOGIN ---
-# Função para exibir a tela de login e autenticar o usuário.
-# A imagem mostra um erro relacionado à função de login.
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -404,16 +362,13 @@ def login():
                     st.error("Usuário não encontrado.")
 
 # --- 9. PAINEL PRINCIPAL ---
-# Função principal que renderiza o painel após o login.
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
-    # Processamento dos dados.
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
-    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -422,7 +377,6 @@ def main():
     perfil = st.session_state['funcao']
     nome_usuario = st.session_state['nome_real']
 
-    # Filtragem de dados com base no perfil do usuário.
     if perfil == 'admin':
         df_grafico = df_grafico_total
         df_tam = df_tam_total
@@ -436,19 +390,14 @@ def main():
         df_n2 = df_n2_total[df_n2_total['Colaborador'] == nome_usuario]
         df_n1 = df_n1_total[df_n1_total['Colaborador'] == nome_usuario]
 
-    # Adiciona a coluna de cor dinâmica ao DataFrame de TAM.
     if not df_tam.empty:
         df_tam['Cor_Dinamica'] = df_tam['TAM'].apply(definir_cor_pela_nota)
 
-    # --- BARRA LATERAL ---
     with st.sidebar:
         st.markdown(f"<h2 style='text-align: center; color: #58A6FF;'>☁️ TeamBrisa</h2>", unsafe_allow_html=True)
-        # Exibe o usuário logado na barra lateral.
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
-        # Menu de navegação.
-        # A imagem mostra o menu de navegação.
         escolha = option_menu(
             menu_title=None, 
             options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], 
@@ -465,8 +414,6 @@ def main():
         )
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Filtros do Painel Tático.
-        # A imagem mostra os filtros na barra lateral.
         if escolha == "Painel Tático":
             st.subheader("🔍 Filtros")
             if perfil == 'admin':
@@ -490,8 +437,6 @@ def main():
                 filtro_met = None
             st.markdown("---")
 
-        # Botão de Sair.
-        # A imagem mostra o botão "Sair".
         if st.button("Sair", use_container_width=True):
             st.session_state['logado'] = False
             st.rerun()
@@ -501,8 +446,6 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
-        # --- KPIs ---
-        # As imagens mostram os KPIs no topo do painel.
         kpi1, kpi2, kpi3 = st.columns(3)
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
@@ -531,18 +474,13 @@ def main():
         kpi5.metric("✅ Conformidade - Geral", val_conf)
         st.markdown("---")
 
-        # --- ABAS ---
-        # A imagem mostra as abas "Visão Gráfica" e "Ranking Detalhado".
         tab_graficos, tab_ranking = st.tabs(["📈 Visão Gráfica", "🏆 Ranking Detalhado"])
 
-        # --- ABA: VISÃO GRÁFICA ---
         with tab_graficos:
             st.markdown(f"**Visão:** {filtro_op}")
             col_esq, col_dir = st.columns([2, 1.2], gap="large")
 
             with col_esq:
-                # Gráfico de Evolução Mensal.
-                # As imagens mostram o gráfico de "Evolução Mensal".
                 st.markdown(f"### 📈 Evolução Mensal")
                 if filtro_op and filtro_met and not df_grafico.empty:
                     if filtro_met == "Geral":
@@ -575,8 +513,6 @@ def main():
 
                 st.markdown("---")
                 
-                # Gráfico de TMA.
-                # As imagens mostram o gráfico de "TMA - Voz e Chat (Minutos)".
                 st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
                 if not df_tma_total.empty:
                     fig_tma = px.bar(
@@ -601,8 +537,6 @@ def main():
                     st.info("Dados de TMA não encontrados.")
 
                 st.markdown("---")
-                # Gráfico de Monitoramento de Performance (Diamantes).
-                # A imagem mostra um erro no gráfico de monitoramento, indicando a existência desta seção.
                 st.markdown("### 💎 Monitoramento de Performance (Diamantes)")
                 
                 if not df_monit.empty:
@@ -622,8 +556,6 @@ def main():
                     st.info("Sem dados de monitoramento.")
 
             with col_dir:
-                # Rankings Visuais (Geral e por Nível).
-                # As imagens mostram os rankings visuais.
                 renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
                 st.markdown("---")
                 renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
@@ -631,40 +563,37 @@ def main():
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
         # --- ABA: RANKING DETALHADO (CARDS) ---
-        # As imagens mostram o "Ranking do Time (TAM)" na aba "Ranking Detalhado" no formato de cards.
-        # ESTA É A PARTE CORRIGIDA QUE EVITA O TEXTO PURO NA TELA.
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # Constrói a string HTML com todos os cards.
+                # Monta TODO o HTML primeiro
                 html_cards = '<div class="scrolling-wrapper">'
                 
                 for idx, row in df_rank_cards.iterrows():
                     nome = row['Colaborador']
                     score = row['TAM']
                     
-                    # Define o ícone e a cor da medalha com base na posição no ranking.
-                    if idx == 0: icon, cor_score = "👑", "#FFD700" 
-                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" 
-                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" 
-                    else: icon, cor_score = "🎖️", "#00FF7F" 
+                    if idx == 0: icon = "👑"
+                    elif idx == 1: icon = "🥈"
+                    elif idx == 2: icon = "🥉"
+                    else: icon = "🎖️"
                     
-                    # Define a cor da nota com base no valor.
                     if score >= 90: cor_val = "#00FF7F"
                     elif score >= 70: cor_val = "#FFD700"
                     else: cor_val = "#FF4B4B"
                     
-                    # Gera a URL do avatar usando a API UI Avatars.
                     nome_formatado = nome.replace(" ", "+")
                     avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                     
-                    # Adiciona o HTML do card à string principal.
+                    # Concatena o HTML de cada card
                     html_cards += f"""
                     <div class="ranking-card">
                         <div class="medal-icon">{icon}</div>
-                        <img src="{avatar_url}" class="avatar-img">
+                        <div class="avatar-container">
+                            <img src="{avatar_url}" class="avatar-img">
+                        </div>
                         <div class="name-text">{nome}</div>
                         <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
                     </div>
@@ -672,12 +601,11 @@ def main():
                 
                 html_cards += '</div>'
                 
-                # Renderiza o HTML completo dos cards UMA ÚNICA VEZ fora do loop.
+                # Renderiza UMA VEZ SOMENTE
                 st.markdown(html_cards, unsafe_allow_html=True)
             else:
                 st.info("Sem dados para exibir no ranking.")
 
-    # --- OUTRAS PÁGINAS (Em desenvolvimento ou Kanban) ---
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
         st.info("🚧 Em desenvolvimento.")
@@ -689,7 +617,6 @@ def main():
     elif escolha == "Tarefas":
         st.title("✅ Kanban Board")
         st.markdown("---")
-        # Formulário para adicionar nova tarefa.
         with st.expander("➕ Nova Tarefa", expanded=False):
             with st.form("form_tarefa"):
                 c1, c2 = st.columns([3, 1])
@@ -699,8 +626,6 @@ def main():
                     adicionar_tarefa(titulo, cat, nome_usuario)
                     st.rerun()
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Colunas do Kanban (A Fazer, Em Andamento, Concluído).
         col_nao, col_ini, col_conc = st.columns(3)
         minhas_tarefas = [t for t in st.session_state['tarefas'] if t['responsavel'] == nome_usuario]
 
@@ -749,7 +674,6 @@ def main():
         st.title("⚙️ Gerenciamento")
         st.markdown("---")
         st.subheader("🎨 Aparência")
-        # Opção para trocar o tema.
         tema_atual = st.session_state['tema']
         novo_tema = st.radio("Tema:", ["Escuro", "Claro"], index=0 if tema_atual == "Escuro" else 1, horizontal=True)
         if novo_tema != tema_atual:
@@ -757,8 +681,6 @@ def main():
             st.rerun()
 
 # --- INICIALIZAÇÃO ---
-# Verifica se o usuário está logado e direciona para a tela de login ou para o painel principal.
-# A imagem mostra um erro na verificação de login.
 if 'logado' not in st.session_state: st.session_state['logado'] = False
 if not st.session_state['logado']: login()
 else: main()
