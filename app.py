@@ -55,29 +55,24 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
-        /* --- ANIMAÇÕES PREMIUM (KEYFRAMES) --- */
-        
-        /* 1. Entrada Suave da Página */
+        /* --- ANIMAÇÕES PREMIUM --- */
         @keyframes fadeInUp {{
             from {{ opacity: 0; transform: translate3d(0, 20px, 0); }}
             to {{ opacity: 1; transform: translate3d(0, 0, 0); }}
         }}
         .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
 
-        /* 2. Flutuação (Para a Coroa do Top 1) */
         @keyframes float {{
             0% {{ transform: translateY(0px) rotate(0deg); }}
             50% {{ transform: translateY(-10px) rotate(5deg); }}
             100% {{ transform: translateY(0px) rotate(0deg); }}
         }}
-        .floating-icon {{
-            animation: float 3s ease-in-out infinite;
-        }}
+        .floating-icon {{ animation: float 3s ease-in-out infinite; }}
 
-        /* 3. Pulso Vermelho (Para Zona de Atenção) */
+        /* Animação de Pulso Vermelho para o Card de Risco */
         @keyframes pulse-red {{
-            0% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }}
-            70% {{ box-shadow: 0 0 0 10px rgba(255, 75, 75, 0); }}
+            0% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); }}
+            70% {{ box-shadow: 0 0 0 15px rgba(255, 75, 75, 0); }}
             100% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }}
         }}
         .alert-card {{
@@ -85,7 +80,6 @@ def aplicar_tema():
             border: 1px solid #FF4B4B !important;
         }}
 
-        /* 4. Efeito Shimmer (Brilho Passando) */
         @keyframes shimmer {{
             0% {{ background-position: -200% 0; }}
             100% {{ background-position: 200% 0; }}
@@ -440,32 +434,48 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
+        # --- BLOCO DE KPIS SUPERIORES ---
         kpi1, kpi2, kpi3 = st.columns(3)
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
+            
+            # Melhor Performance (Primeiro da lista)
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
+            
+            # --- MUDANÇA: PONTO DE ATENÇÃO (Último da lista) ---
+            pior_op_nome = df_tam_total.iloc[-1]['Colaborador']
+            pior_op_valor = df_tam_total.iloc[-1]['TAM']
+            
             if not df_n1_total.empty:
                 qtd_nivel_1 = len(df_n1_total[df_n1_total['Nível 1'] > 0])
             else:
                 qtd_nivel_1 = 0
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
-            melhor_op_nome = "-"
+            melhor_op_nome, pior_op_nome = "-", "-"
+            pior_op_valor = 0
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
         
-        # --- ANIMAÇÃO DE PULSO NO KPI DE ALERTA ---
-        if qtd_nivel_1 > 0:
+        # --- AQUI: O KPI 3 AGORA É O 'PONTO DE ATENÇÃO' COM NOME DA PESSOA ---
+        # Usa o CSS 'alert-card' que já tem animação de pulso vermelho
+        st.markdown(f"""
+        <style>
+            /* Posicionamento forçado para substituir o st.metric padrão */
+            [data-testid="column"]:nth-of-type(3) div[data-testid="stMetric"] {{ display: none; }} 
+        </style>
+        """, unsafe_allow_html=True)
+        
+        with kpi3:
             st.markdown(f"""
-            <div class="alert-card" style="background-color: {st.session_state['menu_bg']}; padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 75, 75, 0.5); text-align: center;">
-                <p style="font-size: 16px; font-weight: 600; color: {st.session_state['menu_txt']}; margin: 0;">🚨 Zona de Atenção</p>
-                <p style="font-size: 32px; font-weight: 800; color: #FF4B4B; margin: 0;">{qtd_nivel_1} Operadores</p>
+            <div class="alert-card" style="background-color: {st.session_state['menu_bg']}; padding: 15px; border-radius: 12px; text-align: left; height: 100%;">
+                <p style="font-size: 16px; font-weight: 600; color: {st.session_state['menu_txt']}; margin: 0; opacity: 0.8;">🚨 Ponto de Atenção</p>
+                <p style="font-size: 24px; font-weight: 800; color: #E6EDF3; margin: 5px 0 0 0; color: {st.session_state['menu_txt']}; line-height: 1.2;">{pior_op_nome}</p>
+                <p style="font-size: 28px; font-weight: 800; color: #FF4B4B; margin: 0;">{pior_op_valor:.1f}%</p>
             </div>
             """, unsafe_allow_html=True)
-        else:
-            kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
@@ -596,13 +606,10 @@ def main():
                         score = row['TAM']
                         
                         original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
-                        if original_idx == 0: icon, style_extra = "👑", "floating-icon"
-                        elif original_idx == 1: icon, style_extra = "🥈", ""
-                        elif original_idx == 2: icon, style_extra = "🥉", ""
-                        else: icon, style_extra = "🎖️", ""
-                        
-                        card_class = "ranking-card"
-                        if original_idx == 0: card_class += " shimmer-card" # Efeito brilho no Top 1
+                        if original_idx == 0: icon = "👑"
+                        elif original_idx == 1: icon = "🥈"
+                        elif original_idx == 2: icon = "🥉"
+                        else: icon = "🎖️"
                         
                         if score >= 90: cor_val = "#00FF7F"
                         elif score >= 70: cor_val = "#FFD700"
@@ -611,13 +618,7 @@ def main():
                         nome_formatado = nome.replace(" ", "+")
                         avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                         
-                        html_cards += f"""
-                        <div class="{card_class}">
-                            <div class="medal-icon {style_extra}">{icon}</div>
-                            <img src="{avatar_url}" class="avatar-img">
-                            <div class="name-text">{nome}</div>
-                            <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
-                        </div>"""
+                        html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
                     
                     html_cards += '</div>'
                     st.markdown(html_cards, unsafe_allow_html=True)
