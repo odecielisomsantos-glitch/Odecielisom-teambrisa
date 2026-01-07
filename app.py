@@ -60,6 +60,7 @@ def aplicar_tema():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
+        /* KPI Cards */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; border: 1px solid {border_color};
             padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px {shadow};
@@ -81,31 +82,31 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* RANKING CARDS CSS */
-        .scrolling-wrapper {{
+        /* --- MUDANÇA: RANKING EM GRID (GRADE) --- */
+        .ranking-grid {{
             display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            padding: 30px 10px;
+            flex-wrap: wrap; /* ISSO FAZ QUEBRAR A LINHA */
+            justify-content: center; /* Centraliza os cards */
             gap: 20px;
-            -webkit-overflow-scrolling: touch;
+            padding: 20px 0;
         }}
         
         .ranking-card {{
-            flex: 0 0 auto;
+            /* Removi o 'flex: 0 0 auto' para permitir fluidez se necessário, mas mantive largura fixa */
             width: 200px;
             height: 280px;
             background-color: {card_bg};
             border: 1px solid {border_color};
-            border-radius: 15px;
-            box-shadow: 0 4px 8px {shadow};
+            border-radius: 16px;
+            box-shadow: 0 4px 12px {shadow};
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 15px;
+            padding: 20px 15px;
             transition: transform 0.3s ease;
             position: relative;
+            margin-top: 15px;
         }}
         
         .ranking-card:hover {{
@@ -150,11 +151,6 @@ def aplicar_tema():
             font-size: 26px;
             font-weight: 900;
         }}
-        
-        .scrolling-wrapper::-webkit-scrollbar {{ height: 8px; }}
-        .scrolling-wrapper::-webkit-scrollbar-track {{ background: transparent; }}
-        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #cccccc; border-radius: 20px; }}
-        
     </style>
     """, unsafe_allow_html=True)
 
@@ -556,8 +552,9 @@ def main():
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # --- CORREÇÃO AQUI: REMOVENDO TODA A IDENTAÇÃO DO HTML ---
-                html_cards = '<div class="scrolling-wrapper">'
+                # --- MUDANÇA PRINCIPAL: CLASS ranking-grid ---
+                # Isso ativa o flex-wrap no CSS
+                html_cards = '<div class="ranking-grid">'
                 
                 for idx, row in df_rank_cards.iterrows():
                     nome = row['Colaborador']
@@ -575,7 +572,6 @@ def main():
                     nome_formatado = nome.replace(" ", "+")
                     avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                     
-                    # HTML SEM RECUO (IDENTAÇÃO) PARA EVITAR QUE VIRE CÓDIGO
                     html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
                 
                 html_cards += '</div>'
