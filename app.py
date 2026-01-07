@@ -22,7 +22,7 @@ def aplicar_tema():
         text_color = "#E6EDF3"
         card_bg = "#161B22"
         border_color = "#30363D"
-        metric_label = "#C9D1D9"
+        metric_label = "#E6EDF3" # Cor mais clara para leitura
         
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
@@ -39,7 +39,7 @@ def aplicar_tema():
         text_color = "#31333F"
         card_bg = "#FFFFFF"
         border_color = "#E0E0E0"
-        metric_label = "#555555"
+        metric_label = "#31333F"
         
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#31333F'
@@ -50,36 +50,32 @@ def aplicar_tema():
         st.session_state['menu_txt'] = "#31333F"
         st.session_state['menu_hover'] = "#E0E0E0"
 
-    # --- REGRA DE CORES MONITORAMENTO (SEMÁFORO ESPECÍFICO) ---
-    # 0 Diamantes (Exatamente 0.0) -> Laranja (#FF6D00)
-    # 1 a 29 Diamantes (0.01 a 0.69) -> Vermelho (#FF4B4B)
-    # 30 a 33 Diamantes (0.70 a 0.79) -> Amarelo (#FFD700)
-    # 34 a 42 Diamantes (0.80 a 1.0) -> Verde Neon (#00FF7F)
-    
     st.session_state['colorscale_monit'] = [
-        [0.0, "#FF6D00"],   # 0: Começa Laranja
-        [0.01, "#FF6D00"],  # 0: Termina Laranja (Trava o zero)
-        [0.01, "#FF4B4B"],  # 1+: Começa Vermelho
-        [0.69, "#FF4B4B"],  # Até 69%: Vermelho
-        [0.69, "#FFD700"],  # 70%: Começa Amarelo
-        [0.79, "#FFD700"],  # Até 79%: Amarelo
-        [0.79, "#00FF7F"],  # 80%: Começa Verde
-        [1.0, "#00FF7F"]    # Até 100%: Verde
+        [0.0, "#FF6D00"], [0.01, "#FF6D00"], [0.01, "#FF4B4B"], [0.69, "#FF4B4B"], 
+        [0.69, "#FFD700"], [0.79, "#FFD700"], [0.79, "#00FF7F"], [1.0, "#00FF7F"]
     ]
 
     st.markdown(f"""
     <style>
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
-        h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 600; }}
+        h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {metric_label}; }}
         
+        /* CARD KPI */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; border: 1px solid {border_color};
             padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }}
-        div[data-testid="stMetricValue"] {{ font-size: 28px !important; font-weight: bold; color: #00FF7F !important; }}
-        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; color: {metric_label}; }}
+        div[data-testid="stMetricValue"] {{ 
+            font-size: 32px !important; font-weight: 800; color: #00FF7F !important; 
+        }}
+        /* AJUSTE SOLICITADO: TÍTULOS DOS KPIS MAIORES E EM NEGRITO */
+        div[data-testid="stMetricLabel"] {{ 
+            font-size: 19px !important; 
+            font-weight: 700 !important; 
+            color: {metric_label}; 
+        }}
         
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
         
@@ -87,8 +83,10 @@ def aplicar_tema():
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
+        /* AJUSTE SOLICITADO: ABAS MAIORES E EM NEGRITO */
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
+            font-size: 18px !important; font-weight: bold;
         }}
         .stTabs [aria-selected="true"] {{
             background-color: #238636 !important; color: white !important;
@@ -155,7 +153,7 @@ def tratar_numero_inteiro(valor):
     try: return int(float(v.replace(',', '.')))
     except: return 0
 
-# --- 5. PROCESSAMENTO DE DADOS ---
+# --- 5. PROCESSAMENTO ---
 def processar_matriz_grafico(todos_dados):
     INDICE_CABECALHO = 26 
     if len(todos_dados) > INDICE_CABECALHO:
@@ -228,7 +226,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. VISUALIZAÇÃO ---
+# --- 6. VISUALIZAÇÃO ATUALIZADA (FONTS MAIORES) ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -238,10 +236,25 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
         else:
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color=cor_input, color_discrete_map="identity")
         
-        fig.update_traces(texttemplate='<b>%{text:.1f}%</b>', textposition='inside', insidetextanchor='start', textfont_size=18, textfont_color='black')
+        # AJUSTE: Números dentro da barra maiores e em negrito
+        fig.update_traces(
+            texttemplate='<b>%{text:.1f}%</b>', 
+            textposition='inside', 
+            insidetextanchor='start', 
+            textfont_size=18,  # Aumentado
+            textfont_weight='bold',
+            textfont_color='black'
+        )
+        
+        # AJUSTE: Nomes dos Operadores (Eixo Y) maiores
         fig.update_layout(
             paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
-            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), yaxis=dict(autorange="reversed", title=None),
+            xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), 
+            yaxis=dict(
+                autorange="reversed", 
+                title=None,
+                tickfont=dict(size=15, family="Segoe UI", weight="bold") # Nomes grandes e negrito
+            ),
             margin=dict(l=0, r=0, t=0, b=0), height=altura_dinamica, dragmode=False, showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -366,7 +379,6 @@ def main():
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- PÁGINAS ---
     if escolha == "Painel Tático":
         st.title("📊 Painel Tático")
         st.markdown("---")
@@ -420,7 +432,9 @@ def main():
                         
                         if filtro_met == "Geral":
                             fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
-                            fig.update_layout(legend=dict(orientation="h", y=1.1, title=None))
+                            fig.update_layout(
+                                legend=dict(orientation="h", y=1.1, title=None, font=dict(size=14)) # AJUSTE LENGENDA
+                            )
                         else:
                             fig = px.line(df_long, x='Data', y='Performance', markers=True)
                             fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
@@ -428,7 +442,9 @@ def main():
                         fig.update_layout(
                             paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                             yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
-                            margin=dict(l=0, r=0, t=20, b=20), height=400
+                            margin=dict(l=0, r=0, t=20, b=20), height=400,
+                            xaxis=dict(tickfont=dict(size=14)), # DATA MAIOR
+                            yaxis=dict(tickfont=dict(size=14))  # VALOR MAIOR
                         )
                         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
                         st.plotly_chart(fig, use_container_width=True)
@@ -440,21 +456,19 @@ def main():
                 st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
                 if not df_tma_total.empty:
                     fig_tma = px.bar(
-                        df_tma_total, 
-                        x='Data', 
-                        y='Minutos',
-                        color='Minutos',
-                        color_continuous_scale=st.session_state['neon_gradient'],
-                        text='MinutosRaw'
+                        df_tma_total, x='Data', y='Minutos', color='Minutos',
+                        color_continuous_scale=st.session_state['neon_gradient'], text='MinutosRaw'
                     )
                     fig_tma.update_traces(
-                        marker_line_width=0, textposition='outside', textfont_size=22, textfont_weight='bold', 
+                        marker_line_width=0, textposition='outside', 
+                        textfont_size=20, textfont_weight='bold', # VALORES MAIORES
                         textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F', cliponaxis=False 
                     )
                     fig_tma.update_layout(
                         paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
-                        xaxis_title=None, yaxis_title="Minutos (Decimal)", bargap=0.2, height=350,
-                        margin=dict(l=0, r=0, t=20, b=20), coloraxis_showscale=False, hovermode="x unified"
+                        xaxis_title=None, yaxis_title="Minutos", bargap=0.2, height=350,
+                        margin=dict(l=0, r=0, t=20, b=20), coloraxis_showscale=False, hovermode="x unified",
+                        xaxis=dict(tickfont=dict(size=14, weight='bold')) # DATAS MAIORES
                     )
                     fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
                     fig_tma.update_xaxes(showgrid=False)
@@ -467,22 +481,13 @@ def main():
                 
                 if not df_monit.empty:
                     fig_monit = px.density_heatmap(
-                        df_monit, 
-                        x='Data', 
-                        y='Operador', 
-                        z='Diamantes',
-                        text_auto=True,
-                        color_continuous_scale=st.session_state['colorscale_monit'],
-                        range_color=[0, 42]
+                        df_monit, x='Data', y='Operador', z='Diamantes', text_auto=True,
+                        color_continuous_scale=st.session_state['colorscale_monit'], range_color=[0, 42]
                     )
-                    
                     fig_monit.update_layout(
-                        paper_bgcolor=st.session_state['chart_bg'], 
-                        plot_bgcolor=st.session_state['chart_bg'], 
-                        font_color=st.session_state['chart_font'],
-                        xaxis_title=None, yaxis_title=None,
-                        coloraxis_showscale=False, 
-                        height=250, margin=dict(l=0, r=0, t=30, b=10)
+                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
+                        xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=250, margin=dict(l=0, r=0, t=30, b=10),
+                        yaxis=dict(tickfont=dict(size=15, weight='bold')) # NOME OPERADOR MAIOR
                     )
                     fig_monit.update_xaxes(showgrid=False)
                     fig_monit.update_yaxes(showgrid=False)
