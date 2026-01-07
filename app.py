@@ -57,7 +57,7 @@ def aplicar_tema():
 
     # Regra de Cores do Monitoramento
     # Define a escala de cores para o gráfico de monitoramento.
-    # A imagem mostra a necessidade de uma regra de negócio para travar o máximo em 42 diamantes, o que é refletido na escala de cores que define o verde para valores acima de um certo limiar.
+    # A imagem mostra a necessidade de uma regra de negócio para travar o máximo em 42 diamantes.
     st.session_state['colorscale_monit'] = [
         [0.0, "#FF6D00"], [0.01, "#FF6D00"], [0.01, "#FF4B4B"], [0.69, "#FF4B4B"], 
         [0.69, "#FFD700"], [0.79, "#FFD700"], [0.79, "#00FF7F"], [1.0, "#00FF7F"]
@@ -194,7 +194,7 @@ aplicar_tema()
 
 # --- 3. CONFIGURAÇÃO DE USUÁRIOS ---
 # Dicionário com os usuários, senhas e informações de acesso.
-# O painel mostra o usuário logado, por exemplo, "Gestor Geral (ADMIN)". As informações de login são usadas para autenticação e personalização da visão.
+# O painel mostra o usuário logado.
 USUARIOS = {
     "admin": {"senha": "123", "nome_planilha": "Gestor Geral", "funcao": "admin"},
     "damiao": {"senha": "123", "nome_planilha": "DAMIAO EMANUEL DE CARVALHO GOMES", "funcao": "colaborador"},
@@ -275,8 +275,8 @@ def processar_matriz_grafico(todos_dados):
     return pd.DataFrame()
 
 def processar_dados_tma_complexo(todos_dados):
-    # Processa os dados de TMA (Tempo Médio de Atendimento), lidando com a estrutura complexa da planilha.
-    # As imagens mostram gráficos e tabelas de TMA, indicando a necessidade de processar esses dados. O código extrai e trata os dados de TMA de diferentes partes da planilha.
+    # Processa os dados de TMA (Tempo Médio de Atendimento).
+    # As imagens mostram gráficos e tabelas de TMA.
     try:
         datas_p1 = todos_dados[1][14:30] 
         vals_p1 = todos_dados[2][14:30]
@@ -293,7 +293,7 @@ def processar_dados_tma_complexo(todos_dados):
 
 def processar_monitoramento_diamantes(todos_dados):
     # Processa os dados de monitoramento de performance (diamantes).
-    # A imagem mostra um erro relacionado ao processamento de dados de monitoramento, indicando a necessidade desta função.
+    # A imagem mostra um erro relacionado ao processamento de dados de monitoramento.
     try:
         bloco = [linha[14:46] for linha in todos_dados[15:18]] 
         if not bloco: return pd.DataFrame()
@@ -315,7 +315,7 @@ def processar_monitoramento_diamantes(todos_dados):
 
 def processar_tabela_ranking(todos_dados, col_nome_idx, col_valor_idx, linhas_range, titulo_coluna):
     # Processa os dados para as tabelas de ranking (TAM, Nível 1, 2, 3).
-    # A imagem mostra as tabelas de ranking por nível, que são geradas por esta função.
+    # A imagem mostra as tabelas de ranking por nível.
     lista_limpa = []
     for i in linhas_range:
         if i < len(todos_dados):
@@ -339,7 +339,7 @@ def definir_cor_pela_nota(valor):
 
 # --- 6. VISUALIZAÇÃO ---
 # Função para renderizar os gráficos de barras horizontais de ranking.
-# As imagens mostram os gráficos de ranking visual que são gerados por esta função.
+# As imagens mostram os gráficos de ranking visual.
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -364,7 +364,7 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
         st.caption("Sem dados.")
 
 # --- 7. TAREFAS ---
-# Funções para gerenciar o quadro Kanban de tarefas (adicionar, mover, excluir).
+# Funções para gerenciar o quadro Kanban de tarefas.
 def adicionar_tarefa(titulo, categoria, responsavel):
     nova_tarefa = {'id': int(time.time() * 1000), 'titulo': titulo, 'categoria': categoria, 'responsavel': responsavel, 'status': 'Não Iniciado'}
     st.session_state['tarefas'].append(nova_tarefa)
@@ -380,7 +380,7 @@ def excluir_tarefa(id_tarefa):
 
 # --- 8. LOGIN ---
 # Função para exibir a tela de login e autenticar o usuário.
-# A imagem mostra um erro relacionado à função de login, indicando a importância desta parte do código.
+# A imagem mostra um erro relacionado à função de login.
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -409,7 +409,7 @@ def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
 
-    # Processamento dos dados para os diferentes componentes do painel.
+    # Processamento dos dados.
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
@@ -422,7 +422,7 @@ def main():
     perfil = st.session_state['funcao']
     nome_usuario = st.session_state['nome_real']
 
-    # Filtragem de dados com base no perfil do usuário (admin vê tudo, colaborador vê apenas seus dados).
+    # Filtragem de dados com base no perfil do usuário.
     if perfil == 'admin':
         df_grafico = df_grafico_total
         df_tam = df_tam_total
@@ -447,8 +447,8 @@ def main():
         st.info(f"Logado como: **{nome_usuario}** ({perfil.upper()})")
         st.markdown("---")
         
-        # Menu de navegação da barra lateral.
-        # A imagem mostra o menu de navegação com as opções "Painel Tático", "Pausas", "Calendário", "Tarefas" e "Gerenciamento".
+        # Menu de navegação.
+        # A imagem mostra o menu de navegação.
         escolha = option_menu(
             menu_title=None, 
             options=["Painel Tático", "Pausas", "Calendário", "Tarefas", "Gerenciamento"], 
@@ -466,7 +466,7 @@ def main():
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Filtros do Painel Tático.
-        # A imagem mostra os filtros de "Operador" e "Métrica" na barra lateral.
+        # A imagem mostra os filtros na barra lateral.
         if escolha == "Painel Tático":
             st.subheader("🔍 Filtros")
             if perfil == 'admin':
@@ -491,7 +491,7 @@ def main():
             st.markdown("---")
 
         # Botão de Sair.
-        # A imagem mostra o botão "Sair" na barra lateral.
+        # A imagem mostra o botão "Sair".
         if st.button("Sair", use_container_width=True):
             st.session_state['logado'] = False
             st.rerun()
@@ -502,7 +502,7 @@ def main():
         st.markdown("---")
         
         # --- KPIs ---
-        # As imagens mostram os KPIs (Média do Time, Melhor Performance, Zona de Atenção, TPC, Conformidade) no topo do painel.
+        # As imagens mostram os KPIs no topo do painel.
         kpi1, kpi2, kpi3 = st.columns(3)
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
@@ -623,7 +623,7 @@ def main():
 
             with col_dir:
                 # Rankings Visuais (Geral e por Nível).
-                # As imagens mostram os rankings visuais ("Resultado Geral", "Nível 3", "Nível 2", "Nível 1").
+                # As imagens mostram os rankings visuais.
                 renderizar_ranking_visual("🏆 Resultado Geral", df_tam, "TAM", "Cor_Dinamica")
                 st.markdown("---")
                 renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
@@ -632,6 +632,7 @@ def main():
 
         # --- ABA: RANKING DETALHADO (CARDS) ---
         # As imagens mostram o "Ranking do Time (TAM)" na aba "Ranking Detalhado" no formato de cards.
+        # ESTA É A PARTE CORRIGIDA QUE EVITA O TEXTO PURO NA TELA.
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
@@ -671,7 +672,7 @@ def main():
                 
                 html_cards += '</div>'
                 
-                # Renderiza o HTML completo dos cards.
+                # Renderiza o HTML completo dos cards UMA ÚNICA VEZ fora do loop.
                 st.markdown(html_cards, unsafe_allow_html=True)
             else:
                 st.info("Sem dados para exibir no ranking.")
@@ -757,7 +758,7 @@ def main():
 
 # --- INICIALIZAÇÃO ---
 # Verifica se o usuário está logado e direciona para a tela de login ou para o painel principal.
-# A imagem mostra um erro na verificação de login, que é tratada aqui.
+# A imagem mostra um erro na verificação de login.
 if 'logado' not in st.session_state: st.session_state['logado'] = False
 if not st.session_state['logado']: login()
 else: main()
