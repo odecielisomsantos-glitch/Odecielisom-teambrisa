@@ -86,6 +86,83 @@ def aplicar_tema():
         .stTabs [aria-selected="true"] {{
             background-color: #238636 !important; color: white !important;
         }}
+        
+        /* ESTILO DO SCROLL HORIZONTAL DOS CARDS */
+        .scrolling-wrapper {{
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 20px;
+            gap: 20px;
+        }}
+        
+        /* ESTILO DO CARD INDIVIDUAL */
+        .ranking-card {{
+            flex: 0 0 auto;
+            width: 160px; /* Largura do cartão */
+            background-color: {card_bg};
+            border: 1px solid {border_color};
+            border-radius: 15px;
+            padding: 20px 10px;
+            text-align: center;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 240px;
+        }}
+        .ranking-card:hover {{
+            transform: scale(1.05);
+            border-color: #00FF7F;
+        }}
+        
+        .avatar-img {{
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            margin-bottom: 10px;
+            border: 3px solid {border_color};
+        }}
+        
+        .rank-icon {{
+            font-size: 30px;
+            margin-bottom: -15px;
+            z-index: 10;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }}
+        
+        .name-text {{
+            font-size: 14px;
+            font-weight: 600;
+            color: {text_color};
+            margin-bottom: 5px;
+            height: 40px; /* Altura fixa p/ alinhar */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+        }}
+        
+        .score-text {{
+            font-size: 18px;
+            font-weight: 800;
+        }}
+        
+        /* Barra de rolagem bonita */
+        .scrolling-wrapper::-webkit-scrollbar {{
+            height: 8px;
+        }}
+        .scrolling-wrapper::-webkit-scrollbar-track {{
+            background: {border_color};
+            border-radius: 4px;
+        }}
+        .scrolling-wrapper::-webkit-scrollbar-thumb {{
+            background: #00FF7F;
+            border-radius: 4px;
+        }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -221,7 +298,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. VISUALIZAÇÃO ---
+# --- 6. VISUALIZAÇÃO ATUALIZADA ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -290,6 +367,7 @@ def main():
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
+    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -482,38 +560,48 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-        # --- NOVA ABA 2: RANKING DETALHADO (VERSÃO TABELA PREMIUM) ---
+        # --- NOVA LÓGICA DE RANKING VISUAL (CARDS) ---
         with tab_ranking:
-            st.markdown("### 🏆 Ranking do Time (Geral)")
-            
-            # Prepara os dados para a tabela
+            st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
-                df_ranking_display = df_tam_total.copy()
-                df_ranking_display['TAM'] = df_ranking_display['TAM'] / 100.0 # Converte 99.0 para 0.99 para a progress bar funcionar
+                # Ordena
+                df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # Exibe Tabela Profissional
-                st.dataframe(
-                    df_ranking_display,
-                    column_config={
-                        "Colaborador": st.column_config.TextColumn(
-                            "Colaborador",
-                            help="Nome do Operador",
-                            max_chars=50,
-                            width="medium"
-                        ),
-                        "TAM": st.column_config.ProgressColumn(
-                            "Performance (TAM)",
-                            format="%.1f%%",
-                            min_value=0,
-                            max_value=1,
-                        ),
-                        "Cor_Dinamica": None # Oculta a coluna de cor técnica
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+                # Gera HTML dos Cards
+                html_cards = '<div class="scrolling-wrapper">'
+                
+                for idx, row in df_rank_cards.iterrows():
+                    nome = row['Colaborador']
+                    score = row['TAM']
+                    
+                    # Definição de Ícone e Cor
+                    if idx == 0: icon, cor_score = "👑", "#FFD700" # Ouro
+                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" # Prata
+                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" # Bronze
+                    else: icon, cor_score = "🎖️", "#00FF7F" # Verde (Padrão)
+                    
+                    # Cor da nota baseada na regra
+                    if score >= 90: cor_val = "#00FF7F"
+                    elif score >= 70: cor_val = "#FFD700"
+                    else: cor_val = "#FF4B4B"
+                    
+                    # Avatar (API UI Avatars)
+                    nome_formatado = nome.replace(" ", "+")
+                    avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
+                    
+                    html_cards += f"""
+                    <div class="ranking-card">
+                        <div class="rank-icon">{icon}</div>
+                        <img src="{avatar_url}" class="avatar-img">
+                        <div class="name-text">{nome}</div>
+                        <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
+                    </div>
+                    """
+                
+                html_cards += '</div>'
+                st.markdown(html_cards, unsafe_allow_html=True)
             else:
-                st.info("Sem dados de Ranking.")
+                st.info("Sem dados para exibir no ranking.")
 
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
