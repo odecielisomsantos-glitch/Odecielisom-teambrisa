@@ -9,7 +9,6 @@ import time
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# MUDANÇA: Padrão inicia como 'Claro'
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
@@ -33,7 +32,7 @@ def aplicar_tema():
         st.session_state['menu_bg'] = "#161B22"
         st.session_state['menu_txt'] = "#E6EDF3"
         
-    else: # TEMA CLARO (DEFAULT)
+    else: # TEMA CLARO
         bg_color = "#F8F9FA"
         sidebar_bg = "#FFFFFF"
         text_color = "#212529"
@@ -61,7 +60,6 @@ def aplicar_tema():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* KPI Cards */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; border: 1px solid {border_color};
             padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px {shadow};
@@ -75,7 +73,6 @@ def aplicar_tema():
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
-        /* Tabs Style */
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
             font-size: 16px !important; font-weight: 600; border-radius: 5px;
@@ -84,51 +81,44 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* --- CSS DOS CARDS DE RANKING --- */
+        /* RANKING CARDS CSS */
         .scrolling-wrapper {{
             display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
-            padding: 20px 10px;
+            padding: 30px 10px;
             gap: 20px;
             -webkit-overflow-scrolling: touch;
-            align-items: stretch;
         }}
         
         .ranking-card {{
             flex: 0 0 auto;
-            width: 220px;
+            width: 200px;
+            height: 280px;
             background-color: {card_bg};
             border: 1px solid {border_color};
-            border-radius: 16px;
-            box-shadow: 0 4px 12px {shadow};
+            border-radius: 15px;
+            box-shadow: 0 4px 8px {shadow};
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px 15px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            justify-content: center;
+            padding: 15px;
+            transition: transform 0.3s ease;
             position: relative;
-            margin-top: 15px; /* Espaço para o ícone flutuante */
         }}
         
         .ranking-card:hover {{
             transform: translateY(-5px);
             border-color: #00FF7F;
-            box-shadow: 0 8px 16px rgba(0, 255, 127, 0.2);
         }}
         
         .medal-icon {{
-            font-size: 42px;
+            font-size: 45px;
             position: absolute;
-            top: -20px; /* Flutua acima do card */
+            top: -25px;
             z-index: 10;
-            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
-        }}
-        
-        .avatar-container {{
-            margin-top: 15px;
-            margin-bottom: 15px;
-            position: relative;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
         }}
         
         .avatar-img {{
@@ -136,18 +126,20 @@ def aplicar_tema():
             height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            border: 4px solid {card_bg}; /* Borda para separar do fundo */
-            box-shadow: 0 0 0 3px #00B4D8; /* Anel colorido externo (Ciano) */
+            border: 4px solid {card_bg};
+            box-shadow: 0 3px 6px {shadow};
+            margin-bottom: 15px;
+            margin-top: 10px;
         }}
         
         .name-text {{
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             color: {text_color};
             text-align: center;
-            line-height: 1.3;
+            line-height: 1.2;
             margin-bottom: 10px;
-            height: 40px; 
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -157,13 +149,11 @@ def aplicar_tema():
         .score-text {{
             font-size: 26px;
             font-weight: 900;
-            margin-top: auto; /* Empurra para o final */
         }}
         
-        /* Scrollbar */
-        .scrolling-wrapper::-webkit-scrollbar {{ height: 10px; }}
+        .scrolling-wrapper::-webkit-scrollbar {{ height: 8px; }}
         .scrolling-wrapper::-webkit-scrollbar-track {{ background: transparent; }}
-        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #00FF7F; border-radius: 20px; }}
+        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #cccccc; border-radius: 20px; }}
         
     </style>
     """, unsafe_allow_html=True)
@@ -441,7 +431,6 @@ def main():
             st.session_state['logado'] = False
             st.rerun()
 
-    # --- PÁGINAS ---
     if escolha == "Painel Tático":
         st.title("📊 Painel Tático")
         st.markdown("---")
@@ -562,23 +551,22 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-        # --- ABA: RANKING DETALHADO (CARDS) ---
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # Monta TODO o HTML primeiro
+                # --- CORREÇÃO AQUI: REMOVENDO TODA A IDENTAÇÃO DO HTML ---
                 html_cards = '<div class="scrolling-wrapper">'
                 
                 for idx, row in df_rank_cards.iterrows():
                     nome = row['Colaborador']
                     score = row['TAM']
                     
-                    if idx == 0: icon = "👑"
-                    elif idx == 1: icon = "🥈"
-                    elif idx == 2: icon = "🥉"
-                    else: icon = "🎖️"
+                    if idx == 0: icon, cor_score = "👑", "#FFD700" 
+                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" 
+                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" 
+                    else: icon, cor_score = "🎖️", "#00FF7F" 
                     
                     if score >= 90: cor_val = "#00FF7F"
                     elif score >= 70: cor_val = "#FFD700"
@@ -587,21 +575,11 @@ def main():
                     nome_formatado = nome.replace(" ", "+")
                     avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                     
-                    # Concatena o HTML de cada card
-                    html_cards += f"""
-                    <div class="ranking-card">
-                        <div class="medal-icon">{icon}</div>
-                        <div class="avatar-container">
-                            <img src="{avatar_url}" class="avatar-img">
-                        </div>
-                        <div class="name-text">{nome}</div>
-                        <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
-                    </div>
-                    """
+                    # HTML SEM RECUO (IDENTAÇÃO) PARA EVITAR QUE VIRE CÓDIGO
+                    html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
                 
                 html_cards += '</div>'
                 
-                # Renderiza UMA VEZ SOMENTE
                 st.markdown(html_cards, unsafe_allow_html=True)
             else:
                 st.info("Sem dados para exibir no ranking.")
