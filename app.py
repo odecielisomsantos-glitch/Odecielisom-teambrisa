@@ -60,7 +60,6 @@ def aplicar_tema():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* KPI Cards */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; border: 1px solid {border_color};
             padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px {shadow};
@@ -82,17 +81,16 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* --- MUDANÇA: RANKING EM GRID (GRADE) --- */
+        /* RANKING GRID SYSTEM */
         .ranking-grid {{
             display: flex;
-            flex-wrap: wrap; /* ISSO FAZ QUEBRAR A LINHA */
-            justify-content: center; /* Centraliza os cards */
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 20px;
             padding: 20px 0;
         }}
         
         .ranking-card {{
-            /* Removi o 'flex: 0 0 auto' para permitir fluidez se necessário, mas mantive largura fixa */
             width: 200px;
             height: 280px;
             background-color: {card_bg};
@@ -355,6 +353,7 @@ def main():
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
+    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -549,34 +548,62 @@ def main():
 
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
+            
+            # --- FILTROS DE FAIXA (CHECKBOXES) ---
+            f1, f2, f3 = st.columns(3)
+            with f1: check_high = st.checkbox("🟢 Acima de 90%", value=True)
+            with f2: check_med = st.checkbox("🟡 70% a 89%", value=True)
+            with f3: check_low = st.checkbox("🔴 Abaixo de 70%", value=True)
+            
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # --- MUDANÇA PRINCIPAL: CLASS ranking-grid ---
-                # Isso ativa o flex-wrap no CSS
-                html_cards = '<div class="ranking-grid">'
+                # --- APLICAÇÃO DO FILTRO ---
+                filtro_indices = []
+                for i, row in df_rank_cards.iterrows():
+                    v = row['TAM']
+                    keep = False
+                    if v >= 90 and check_high: keep = True
+                    elif 70 <= v < 90 and check_med: keep = True
+                    elif v < 70 and check_low: keep = True
+                    
+                    if keep: filtro_indices.append(i)
                 
-                for idx, row in df_rank_cards.iterrows():
-                    nome = row['Colaborador']
-                    score = row['TAM']
-                    
-                    if idx == 0: icon, cor_score = "👑", "#FFD700" 
-                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" 
-                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" 
-                    else: icon, cor_score = "🎖️", "#00FF7F" 
-                    
-                    if score >= 90: cor_val = "#00FF7F"
-                    elif score >= 70: cor_val = "#FFD700"
-                    else: cor_val = "#FF4B4B"
-                    
-                    nome_formatado = nome.replace(" ", "+")
-                    avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
-                    
-                    html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
+                df_filtered = df_rank_cards.loc[filtro_indices]
                 
-                html_cards += '</div>'
-                
-                st.markdown(html_cards, unsafe_allow_html=True)
+                if not df_filtered.empty:
+                    html_cards = '<div class="ranking-grid">'
+                    
+                    for idx, row in df_filtered.iterrows():
+                        nome = row['Colaborador']
+                        score = row['TAM']
+                        
+                        # Ícone baseado na posição original do ranking (ou seja, quem é Top 1 continua sendo Top 1)
+                        # Nota: Se filtrar, o Top 1 global pode sumir, mas a medalha deve refletir o status real.
+                        # Para simplificar, vou dar medalhas baseadas na nota ou índice original. 
+                        # Aqui usarei o índice original do DataFrame completo para garantir que o Top 1 seja sempre Ouro.
+                        
+                        # Acha o índice original para dar a medalha certa
+                        original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
+                        
+                        if original_idx == 0: icon = "👑"
+                        elif original_idx == 1: icon = "🥈"
+                        elif original_idx == 2: icon = "🥉"
+                        else: icon = "🎖️"
+                        
+                        if score >= 90: cor_val = "#00FF7F"
+                        elif score >= 70: cor_val = "#FFD700"
+                        else: cor_val = "#FF4B4B"
+                        
+                        nome_formatado = nome.replace(" ", "+")
+                        avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
+                        
+                        html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
+                    
+                    html_cards += '</div>'
+                    st.markdown(html_cards, unsafe_allow_html=True)
+                else:
+                    st.warning("Nenhum operador encontrado com os filtros selecionados.")
             else:
                 st.info("Sem dados para exibir no ranking.")
 
