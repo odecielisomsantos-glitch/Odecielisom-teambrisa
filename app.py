@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import plotly.express as px
+import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 import time 
@@ -59,23 +60,20 @@ def aplicar_tema():
         @keyframes fadeInUp {{ from {{ opacity: 0; transform: translate3d(0, 20px, 0); }} to {{ opacity: 1; transform: translate3d(0, 0, 0); }} }}
         .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
 
-        /* ESTILOS GERAIS */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* KPI CARDS (Quadrados Pequenos) */
+        /* KPI Cards */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; 
             border: 1px solid {border_color};
             padding: 20px; 
             border-radius: 12px; 
             box-shadow: 0 4px 6px {shadow};
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            height: 100%; /* Garante altura igual */
+            height: 100%;
         }}
-        div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
         div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
@@ -93,30 +91,50 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* RANKING GRID */
-        .ranking-grid {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0; }}
-        .ranking-card {{
-            width: 200px; height: 280px; background-color: {card_bg};
-            border: 1px solid {border_color}; border-radius: 20px;
-            box-shadow: 0 10px 20px {shadow};
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 20px 15px; position: relative; margin-top: 15px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* RANKING CARD VISUAL (HTML puro para o visual) */
+        .ranking-card-inner {{
+            width: 100%;
+            background-color: {card_bg};
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            box-shadow: 0 4px 12px {shadow};
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 10px;
+            position: relative;
+            margin-top: 15px;
+            margin-bottom: 10px;
         }}
-        .ranking-card:hover {{ transform: translateY(-10px) scale(1.02); box-shadow: 0 20px 40px rgba(0, 255, 127, 0.15); border-color: #00FF7F; }}
         
-        .medal-icon {{ font-size: 45px; position: absolute; top: -25px; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15)); }}
+        .medal-icon {{ font-size: 40px; position: absolute; top: -20px; z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2)); }}
         .avatar-img {{
-            width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
+            width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
             border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
-            margin-bottom: 15px; margin-top: 10px;
+            margin-bottom: 10px; margin-top: 10px;
         }}
         .name-text {{
-            font-size: 14px; font-weight: 700; color: {text_color}; text-align: center;
-            line-height: 1.3; margin-bottom: 10px; height: 40px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+            font-size: 13px; font-weight: 700; color: {text_color}; text-align: center;
+            line-height: 1.2; margin-bottom: 5px; height: 35px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
         }}
-        .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
+        .score-text {{ font-size: 22px; font-weight: 900; letter-spacing: -1px; }}
         
+        /* Botão Personalizado dentro do Card */
+        .stButton button {{
+            width: 100%;
+            border-radius: 20px;
+            border: 1px solid {border_color};
+            background-color: transparent;
+            color: {text_color};
+            font-size: 12px;
+        }}
+        .stButton button:hover {{
+            border-color: #00FF7F;
+            color: #00FF7F;
+            background-color: {card_bg};
+        }}
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -313,7 +331,41 @@ def login():
                 else:
                     st.error("Usuário não encontrado.")
 
-# --- 9. PAINEL PRINCIPAL ---
+# --- 9. DIALOG (MODAL) PARA DETALHES ---
+@st.experimental_dialog("📊 Detalhes do Colaborador")
+def mostrar_detalhes_operador(nome_op, df_detalhado):
+    st.markdown(f"### {nome_op}")
+    st.markdown("---")
+    
+    # Filtra os dados daquele operador na tabela principal (df_grafico_total)
+    # df_grafico_total tem colunas: Operador, Metrica, Datas...
+    if not df_detalhado.empty:
+        df_op = df_detalhado[df_detalhado['Operador'] == nome_op]
+        
+        if not df_op.empty:
+            # Pivot para mostrar bonitinho
+            # Transforma as métricas em linhas
+            metrics_to_show = df_op['Metrica'].unique()
+            
+            for metrica in metrics_to_show:
+                # Pega a linha dessa métrica
+                linha = df_op[df_op['Metrica'] == metrica]
+                # Pega os valores (excluindo as colunas de texto)
+                valores = linha.iloc[:, 2:].values.flatten()
+                
+                # Calcula uma média ou mostra o último valor válido
+                # Aqui vamos fazer um mini gráfico sparkline se possível, ou apenas mostrar os dados
+                st.markdown(f"**{metrica}**")
+                
+                # Cria um mini dataframe para exibir
+                df_mini = pd.DataFrame([valores], columns=linha.columns[2:])
+                st.dataframe(df_mini, hide_index=True, use_container_width=True)
+        else:
+            st.warning("Dados detalhados não encontrados para este operador.")
+    else:
+        st.error("Base de dados indisponível.")
+
+# --- 10. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
@@ -403,16 +455,18 @@ def main():
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
-            # --- VOLTANDO AO PADRÃO: CONTAGEM DE PESSOAS EM RISCO ---
-            # Conta quantas pessoas estão abaixo de 70% (no df_tam_total)
-            qtd_nivel_1 = len(df_tam_total[df_tam_total['TAM'] < 70])
+            # --- CORREÇÃO SOLICITADA: CONTA APENAS QUEM TEM TAM < 70 E TAM > 0 ---
+            # Exclui os zerados (férias, etc)
+            df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
+            qtd_nivel_1 = len(df_risco_real)
+            
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        # KPI 3 AGORA MOSTRA APENAS A CONTAGEM (QUADRADO PEQUENO PADRÃO)
+        # KPI 3 MOSTRA A CONTAGEM AJUSTADA
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -537,29 +591,48 @@ def main():
                 df_filtered = df_rank_cards.loc[filtro_indices]
                 
                 if not df_filtered.empty:
-                    html_cards = '<div class="ranking-grid">'
+                    # --- INTERATIVIDADE REAL: GRID DE COLUNAS DO STREAMLIT ---
+                    # Para inserir botões que funcionam, precisamos usar st.columns
+                    # Vamos criar 5 colunas por linha
                     
-                    for idx, row in df_filtered.iterrows():
-                        nome = row['Colaborador']
-                        score = row['TAM']
-                        
-                        original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
-                        if original_idx == 0: icon = "👑"
-                        elif original_idx == 1: icon = "🥈"
-                        elif original_idx == 2: icon = "🥉"
-                        else: icon = "🎖️"
-                        
-                        if score >= 90: cor_val = "#00FF7F"
-                        elif score >= 70: cor_val = "#FFD700"
-                        else: cor_val = "#FF4B4B"
-                        
-                        nome_formatado = nome.replace(" ", "+")
-                        avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
-                        
-                        html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
+                    cols_per_row = 5
+                    rows = [df_filtered.iloc[i:i+cols_per_row] for i in range(0, len(df_filtered), cols_per_row)]
                     
-                    html_cards += '</div>'
-                    st.markdown(html_cards, unsafe_allow_html=True)
+                    for row_df in rows:
+                        cols = st.columns(cols_per_row)
+                        for idx_col, (idx_df, operator_row) in enumerate(row_df.iterrows()):
+                            with cols[idx_col]:
+                                nome = operator_row['Colaborador']
+                                score = operator_row['TAM']
+                                
+                                # Acha a posição original para a medalha
+                                original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
+                                if original_idx == 0: icon = "👑"
+                                elif original_idx == 1: icon = "🥈"
+                                elif original_idx == 2: icon = "🥉"
+                                else: icon = "🎖️"
+                                
+                                if score >= 90: cor_val = "#00FF7F"
+                                elif score >= 70: cor_val = "#FFD700"
+                                else: cor_val = "#FF4B4B"
+                                
+                                nome_formatado = nome.replace(" ", "+")
+                                avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
+                                
+                                # Renderiza o Visual do Card
+                                st.markdown(f"""
+                                <div class="ranking-card-inner">
+                                    <div class="medal-icon">{icon}</div>
+                                    <img src="{avatar_url}" class="avatar-img">
+                                    <div class="name-text">{nome}</div>
+                                    <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # --- BOTÃO DE INTERAÇÃO (PYTHON PURO) ---
+                                if st.button("🔍 Ver Métricas", key=f"btn_details_{original_idx}"):
+                                    mostrar_detalhes_operador(nome, df_grafico_total)
+                                    
                 else:
                     st.warning("Nenhum operador encontrado com os filtros selecionados.")
             else:
