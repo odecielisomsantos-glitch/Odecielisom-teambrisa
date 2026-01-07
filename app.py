@@ -22,7 +22,7 @@ def aplicar_tema():
         text_color = "#E6EDF3"
         card_bg = "#161B22"
         border_color = "#30363D"
-        metric_label = "#E6EDF3" # Cor mais clara para leitura
+        metric_label = "#E6EDF3"
         
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
@@ -62,7 +62,6 @@ def aplicar_tema():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {metric_label}; }}
         
-        /* CARD KPI */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; border: 1px solid {border_color};
             padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -70,11 +69,8 @@ def aplicar_tema():
         div[data-testid="stMetricValue"] {{ 
             font-size: 32px !important; font-weight: 800; color: #00FF7F !important; 
         }}
-        /* AJUSTE SOLICITADO: TÍTULOS DOS KPIS MAIORES E EM NEGRITO */
         div[data-testid="stMetricLabel"] {{ 
-            font-size: 19px !important; 
-            font-weight: 700 !important; 
-            color: {metric_label}; 
+            font-size: 19px !important; font-weight: 700 !important; color: {metric_label}; 
         }}
         
         .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
@@ -83,7 +79,6 @@ def aplicar_tema():
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
-        /* AJUSTE SOLICITADO: ABAS MAIORES E EM NEGRITO */
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
             font-size: 18px !important; font-weight: bold;
@@ -226,7 +221,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. VISUALIZAÇÃO ATUALIZADA (FONTS MAIORES) ---
+# --- 6. VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -236,25 +231,14 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
         else:
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color=cor_input, color_discrete_map="identity")
         
-        # AJUSTE: Números dentro da barra maiores e em negrito
         fig.update_traces(
-            texttemplate='<b>%{text:.1f}%</b>', 
-            textposition='inside', 
-            insidetextanchor='start', 
-            textfont_size=18,  # Aumentado
-            textfont_weight='bold',
-            textfont_color='black'
+            texttemplate='<b>%{text:.1f}%</b>', textposition='inside', insidetextanchor='start', 
+            textfont_size=18, textfont_weight='bold', textfont_color='black'
         )
-        
-        # AJUSTE: Nomes dos Operadores (Eixo Y) maiores
         fig.update_layout(
             paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
             xaxis=dict(showgrid=False, showticklabels=False, range=[0, 115]), 
-            yaxis=dict(
-                autorange="reversed", 
-                title=None,
-                tickfont=dict(size=15, family="Segoe UI", weight="bold") # Nomes grandes e negrito
-            ),
+            yaxis=dict(autorange="reversed", title=None, tickfont=dict(size=15, family="Segoe UI", weight="bold")),
             margin=dict(l=0, r=0, t=0, b=0), height=altura_dinamica, dragmode=False, showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -306,7 +290,6 @@ def main():
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
-    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -432,9 +415,7 @@ def main():
                         
                         if filtro_met == "Geral":
                             fig = px.line(df_long, x='Data', y='Performance', color='Metrica', markers=True)
-                            fig.update_layout(
-                                legend=dict(orientation="h", y=1.1, title=None, font=dict(size=14)) # AJUSTE LENGENDA
-                            )
+                            fig.update_layout(legend=dict(orientation="h", y=1.1, title=None, font=dict(size=14)))
                         else:
                             fig = px.line(df_long, x='Data', y='Performance', markers=True)
                             fig.update_traces(line_color='#00FF7F', line_width=4, marker_size=8, marker_color='#FFFFFF')
@@ -443,8 +424,7 @@ def main():
                             paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                             yaxis_ticksuffix="%", yaxis_range=[0, 115], hovermode="x unified",
                             margin=dict(l=0, r=0, t=20, b=20), height=400,
-                            xaxis=dict(tickfont=dict(size=14)), # DATA MAIOR
-                            yaxis=dict(tickfont=dict(size=14))  # VALOR MAIOR
+                            xaxis=dict(tickfont=dict(size=14)), yaxis=dict(tickfont=dict(size=14))
                         )
                         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'])
                         st.plotly_chart(fig, use_container_width=True)
@@ -461,14 +441,14 @@ def main():
                     )
                     fig_tma.update_traces(
                         marker_line_width=0, textposition='outside', 
-                        textfont_size=20, textfont_weight='bold', # VALORES MAIORES
+                        textfont_size=20, textfont_weight='bold', 
                         textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F', cliponaxis=False 
                     )
                     fig_tma.update_layout(
                         paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                         xaxis_title=None, yaxis_title="Minutos", bargap=0.2, height=350,
                         margin=dict(l=0, r=0, t=20, b=20), coloraxis_showscale=False, hovermode="x unified",
-                        xaxis=dict(tickfont=dict(size=14, weight='bold')) # DATAS MAIORES
+                        xaxis=dict(tickfont=dict(size=14, weight='bold'))
                     )
                     fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
                     fig_tma.update_xaxes(showgrid=False)
@@ -487,7 +467,7 @@ def main():
                     fig_monit.update_layout(
                         paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
                         xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=250, margin=dict(l=0, r=0, t=30, b=10),
-                        yaxis=dict(tickfont=dict(size=15, weight='bold')) # NOME OPERADOR MAIOR
+                        yaxis=dict(tickfont=dict(size=15, weight='bold'))
                     )
                     fig_monit.update_xaxes(showgrid=False)
                     fig_monit.update_yaxes(showgrid=False)
@@ -502,15 +482,38 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
+        # --- NOVA ABA 2: RANKING DETALHADO (VERSÃO TABELA PREMIUM) ---
         with tab_ranking:
-            st.markdown("### 🏆 Ranking do Time (Visualização Expandida)")
-            col_r1, col_r2 = st.columns(2)
-            with col_r1:
-                renderizar_ranking_visual("🏆 Geral", df_tam, "TAM", "Cor_Dinamica")
-                renderizar_ranking_visual("🥇 Nível 3", df_n3, "Nível 3", "#00FF7F")
-            with col_r2:
-                renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
-                renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
+            st.markdown("### 🏆 Ranking do Time (Geral)")
+            
+            # Prepara os dados para a tabela
+            if not df_tam_total.empty:
+                df_ranking_display = df_tam_total.copy()
+                df_ranking_display['TAM'] = df_ranking_display['TAM'] / 100.0 # Converte 99.0 para 0.99 para a progress bar funcionar
+                
+                # Exibe Tabela Profissional
+                st.dataframe(
+                    df_ranking_display,
+                    column_config={
+                        "Colaborador": st.column_config.TextColumn(
+                            "Colaborador",
+                            help="Nome do Operador",
+                            max_chars=50,
+                            width="medium"
+                        ),
+                        "TAM": st.column_config.ProgressColumn(
+                            "Performance (TAM)",
+                            format="%.1f%%",
+                            min_value=0,
+                            max_value=1,
+                        ),
+                        "Cor_Dinamica": None # Oculta a coluna de cor técnica
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("Sem dados de Ranking.")
 
     elif escolha == "Pausas":
         st.title("⏸️ Controle de Pausas")
