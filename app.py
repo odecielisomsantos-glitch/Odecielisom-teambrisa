@@ -9,7 +9,7 @@ import time
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# MUDANÇA: Padrão agora é 'Claro'
+# --- MUDANÇA: PADRÃO INICIA COMO 'CLARO' ---
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
@@ -17,6 +17,7 @@ if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 def aplicar_tema():
     tema = st.session_state['tema']
     
+    # Definição das variáveis de cor baseadas no tema
     if tema == 'Escuro':
         bg_color = "#0E1117"
         sidebar_bg = "#161B22"
@@ -24,6 +25,7 @@ def aplicar_tema():
         card_bg = "#161B22"
         border_color = "#30363D"
         metric_label = "#E6EDF3"
+        shadow = "rgba(0,0,0,0.3)"
         
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
@@ -32,119 +34,146 @@ def aplicar_tema():
         
         st.session_state['menu_bg'] = "#161B22"
         st.session_state['menu_txt'] = "#E6EDF3"
-        st.session_state['menu_hover'] = "#21262d"
         
-    else:
-        bg_color = "#FFFFFF"
-        sidebar_bg = "#F0F2F6"
-        text_color = "#31333F"
+    else: # TEMA CLARO (DEFAULT)
+        bg_color = "#F8F9FA" # Cinza bem clarinho pro fundo
+        sidebar_bg = "#FFFFFF"
+        text_color = "#212529"
         card_bg = "#FFFFFF"
-        border_color = "#E0E0E0"
-        metric_label = "#31333F"
+        border_color = "#DEE2E6"
+        metric_label = "#495057"
+        shadow = "rgba(0,0,0,0.1)"
         
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
-        st.session_state['chart_font'] = '#31333F'
-        st.session_state['chart_grid'] = '#E0E0E0'
+        st.session_state['chart_font'] = '#212529'
+        st.session_state['chart_grid'] = '#E9ECEF'
         st.session_state['neon_gradient'] = [(0.0, "#A8E6CF"), (1.0, "#008000")]
         
-        st.session_state['menu_bg'] = "#F0F2F6"
-        st.session_state['menu_txt'] = "#31333F"
-        st.session_state['menu_hover'] = "#E0E0E0"
+        st.session_state['menu_bg'] = "#FFFFFF"
+        st.session_state['menu_txt'] = "#212529"
 
+    # Regra de Cores do Monitoramento
     st.session_state['colorscale_monit'] = [
         [0.0, "#FF6D00"], [0.01, "#FF6D00"], [0.01, "#FF4B4B"], [0.69, "#FF4B4B"], 
         [0.69, "#FFD700"], [0.79, "#FFD700"], [0.79, "#00FF7F"], [1.0, "#00FF7F"]
     ]
 
+    # CSS GLOBAL
     st.markdown(f"""
     <style>
+        /* Fundo e Texto Geral */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
+        
+        /* Tipografia */
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
-        p, label, span {{ color: {metric_label}; }}
+        p, label, span {{ color: {text_color}; }}
         
+        /* Cards KPI */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg}; border: 1px solid {border_color};
-            padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: {card_bg}; 
+            border: 1px solid {border_color};
+            padding: 15px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 5px {shadow};
         }}
-        div[data-testid="stMetricValue"] {{ 
-            font-size: 32px !important; font-weight: 800; color: #00FF7F !important; 
-        }}
-        div[data-testid="stMetricLabel"] {{ 
-            font-size: 19px !important; font-weight: 700 !important; color: {metric_label}; 
-        }}
+        div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 18px !important; font-weight: 700 !important; color: {metric_label}; }}
         
-        .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
-        
+        /* Inputs e Selects */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
-            background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
+            background-color: {card_bg}; 
+            color: {text_color}; 
+            border-color: {border_color}; 
+            border-radius: 8px;
         }}
         
+        /* Abas (Tabs) */
         .stTabs [data-baseweb="tab"] {{
-            background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
-            font-size: 18px !important; font-weight: bold;
+            background-color: {card_bg}; 
+            border: 1px solid {border_color}; 
+            color: {text_color};
+            font-size: 16px !important; 
+            font-weight: 600;
+            border-radius: 5px;
         }}
         .stTabs [aria-selected="true"] {{
-            background-color: #238636 !important; color: white !important;
+            background-color: #00FF7F !important; 
+            color: #000000 !important;
+            border-color: #00FF7F !important;
         }}
         
-        /* --- ESTILO DOS CARDS DE RANKING --- */
-        .ranking-container {{
+        /* --- ESTILO DOS CARDS DE RANKING (SCROLL HORIZONTAL) --- */
+        .scrolling-wrapper {{
             display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
+            padding: 20px 10px;
             gap: 20px;
-            padding: 20px 0;
-            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
         }}
+        
         .ranking-card {{
             flex: 0 0 auto;
-            width: 180px;
-            height: 260px;
+            width: 200px;
+            height: 280px;
             background-color: {card_bg};
             border: 1px solid {border_color};
             border-radius: 15px;
+            box-shadow: 0 4px 8px {shadow};
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
+            transition: transform 0.3s ease;
         }}
+        
         .ranking-card:hover {{
-            transform: translateY(-5px);
+            transform: scale(1.05);
             border-color: #00FF7F;
         }}
+        
         .medal-icon {{
-            font-size: 35px;
-            margin-bottom: -10px;
-            z-index: 2;
+            font-size: 40px;
+            margin-bottom: -15px;
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
         }}
+        
         .avatar-img {{
-            width: 90px;
-            height: 90px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid {border_color};
-            margin-bottom: 10px;
+            border: 4px solid {card_bg};
+            box-shadow: 0 3px 6px {shadow};
+            margin-bottom: 15px;
         }}
+        
         .name-text {{
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
-            text-align: center;
             color: {text_color};
-            margin-bottom: 5px;
-            height: 40px; /* Altura fixa para nomes longos */
+            text-align: center;
+            line-height: 1.2;
+            margin-bottom: 10px;
+            height: 40px; /* Altura fixa para alinhar */
             display: flex;
             align-items: center;
             justify-content: center;
-            line-height: 1.2;
         }}
+        
         .score-text {{
-            font-size: 20px;
-            font-weight: 800;
+            font-size: 24px;
+            font-weight: 900;
         }}
+        
+        /* Scrollbar bonito */
+        .scrolling-wrapper::-webkit-scrollbar {{ height: 8px; }}
+        .scrolling-wrapper::-webkit-scrollbar-track {{ background: transparent; }}
+        .scrolling-wrapper::-webkit-scrollbar-thumb {{ background-color: #cccccc; border-radius: 20px; }}
+        
     </style>
     """, unsafe_allow_html=True)
 
@@ -280,7 +309,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. VISUALIZAÇÃO ATUALIZADA ---
+# --- 6. VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -324,7 +353,7 @@ def login():
     with col2:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown("<h2 style='text-align: center;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: #212529;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
             usuario_input = st.text_input("Usuário")
             senha_input = st.text_input("Senha", type="password")
             if st.button("Entrar", use_container_width=True):
@@ -422,6 +451,7 @@ def main():
             st.session_state['logado'] = False
             st.rerun()
 
+    # --- PÁGINAS ---
     if escolha == "Painel Tático":
         st.title("📊 Painel Tático")
         st.markdown("---")
@@ -542,13 +572,14 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-        # --- AQUI ESTÁ A CORREÇÃO DO RANKING EM CARDS (HTML) ---
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                html_cards = '<div class="ranking-container">'
+                # CONSTRUÇÃO DO HTML (AQUI ESTAVA O PROBLEMA DE TEXTO)
+                # Agora o HTML é renderizado corretamente com unsafe_allow_html=True
+                html_cards = '<div class="scrolling-wrapper">'
                 
                 for idx, row in df_rank_cards.iterrows():
                     nome = row['Colaborador']
@@ -564,9 +595,9 @@ def main():
                     else: cor_val = "#FF4B4B"
                     
                     nome_formatado = nome.replace(" ", "+")
-                    # Fonte de avatar: UI Avatars
                     avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                     
+                    # F-String HTML limpa
                     html_cards += f"""
                     <div class="ranking-card">
                         <div class="medal-icon">{icon}</div>
@@ -577,6 +608,8 @@ def main():
                     """
                 
                 html_cards += '</div>'
+                
+                # RENDERIZAÇÃO CORRETA DO HTML
                 st.markdown(html_cards, unsafe_allow_html=True)
             else:
                 st.info("Sem dados para exibir no ranking.")
