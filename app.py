@@ -12,7 +12,7 @@ st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_ic
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
-# --- 2. LÓGICA DE TEMAS E INTERATIVIDADE ---
+# --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
     tema = st.session_state['tema']
     
@@ -21,7 +21,7 @@ def aplicar_tema():
         sidebar_bg = "#161B22"
         text_color = "#E6EDF3"
         card_bg = "#161B22"
-        border_color = "rgba(48, 54, 61, 0.5)" # Borda mais sutil
+        border_color = "rgba(48, 54, 61, 0.5)"
         metric_label = "#E6EDF3"
         shadow = "rgba(0,0,0,0.4)"
         
@@ -37,9 +37,9 @@ def aplicar_tema():
         sidebar_bg = "#FFFFFF"
         text_color = "#212529"
         card_bg = "#FFFFFF"
-        border_color = "rgba(0,0,0,0.05)" # Borda quase invisível
+        border_color = "rgba(0,0,0,0.05)"
         metric_label = "#495057"
-        shadow = "rgba(0,0,0,0.08)" # Sombra suave premium
+        shadow = "rgba(0,0,0,0.08)"
         
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#212529'
@@ -55,175 +55,110 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
-        /* ANIMAÇÃO DE ENTRADA SUAVE (FADE IN + SLIDE UP) */
+        /* --- ANIMAÇÕES PREMIUM (KEYFRAMES) --- */
+        
+        /* 1. Entrada Suave da Página */
         @keyframes fadeInUp {{
             from {{ opacity: 0; transform: translate3d(0, 20px, 0); }}
             to {{ opacity: 1; transform: translate3d(0, 0, 0); }}
         }}
-        
-        /* Aplica animação ao corpo principal */
-        .block-container {{
-            animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
+
+        /* 2. Flutuação (Para a Coroa do Top 1) */
+        @keyframes float {{
+            0% {{ transform: translateY(0px) rotate(0deg); }}
+            50% {{ transform: translateY(-10px) rotate(5deg); }}
+            100% {{ transform: translateY(0px) rotate(0deg); }}
+        }}
+        .floating-icon {{
+            animation: float 3s ease-in-out infinite;
         }}
 
-        /* Fundo e Texto */
-        .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-        [data-testid="stSidebar"] {{ 
-            background-color: {sidebar_bg}; 
-            border-right: 1px solid {border_color};
-            transition: all 0.3s ease;
+        /* 3. Pulso Vermelho (Para Zona de Atenção) */
+        @keyframes pulse-red {{
+            0% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }}
+            70% {{ box-shadow: 0 0 0 10px rgba(255, 75, 75, 0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }}
         }}
-        
+        .alert-card {{
+            animation: pulse-red 2s infinite;
+            border: 1px solid #FF4B4B !important;
+        }}
+
+        /* 4. Efeito Shimmer (Brilho Passando) */
+        @keyframes shimmer {{
+            0% {{ background-position: -200% 0; }}
+            100% {{ background-position: 200% 0; }}
+        }}
+        .shimmer-card {{
+            background: linear-gradient(120deg, {card_bg} 30%, rgba(255,255,255, 0.4) 50%, {card_bg} 70%);
+            background-size: 200% 100%;
+            animation: shimmer 4s infinite linear;
+        }}
+
+        /* --- ESTILOS GERAIS --- */
+        .stApp {{ background-color: {bg_color}; color: {text_color}; }}
+        [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* KPIs - Efeito Glass e Hover */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg}; 
-            border: 1px solid {border_color};
-            padding: 20px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 6px {shadow};
+            background-color: {card_bg}; border: 1px solid {border_color};
+            padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px {shadow};
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
-        div[data-testid="stMetric"]:hover {{
-            transform: translateY(-3px);
-            box-shadow: 0 10px 15px {shadow};
-        }}
-        
+        div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
-        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 600 !important; color: {metric_label}; opacity: 0.8; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 18px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
-        /* Inputs Interativos */
-        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input {{
-            background-color: {card_bg}; 
-            color: {text_color}; 
-            border-color: {border_color}; 
-            border-radius: 8px;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        }}
-        .stSelectbox div[data-baseweb="select"] > div:hover, .stTextInput input:hover {{
-            border-color: #00FF7F;
+        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
+            background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
-        /* Botões Profissionais */
-        .stButton button {{
-            border-radius: 8px;
-            font-weight: 600;
-            border: 1px solid {border_color};
-            background-color: {card_bg};
-            color: {text_color};
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }}
-        .stButton button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 255, 127, 0.2);
-            border-color: #00FF7F;
-            color: #00FF7F;
-        }}
-        
-        /* Abas Modernas */
         .stTabs [data-baseweb="tab"] {{
-            background-color: transparent; 
-            border: none;
-            color: {text_color};
-            font-size: 16px !important; 
-            font-weight: 600;
-            padding-bottom: 10px;
-            transition: color 0.3s ease;
-        }}
-        .stTabs [data-baseweb="tab"]:hover {{
-            color: #00FF7F;
+            background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
+            font-size: 16px !important; font-weight: 600; border-radius: 5px;
         }}
         .stTabs [aria-selected="true"] {{
-            color: #00FF7F !important;
-            border-bottom: 3px solid #00FF7F !important;
-        }}
-        .stTabs [data-baseweb="tab-list"] {{
-            border-bottom: 1px solid {border_color};
-            gap: 20px;
+            background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* --- RANKING GRID --- */
+        /* RANKING GRID */
         .ranking-grid {{
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 25px;
-            padding: 30px 0;
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0;
         }}
         
         .ranking-card {{
-            width: 200px;
-            height: 280px;
-            background-color: {card_bg};
-            border: 1px solid {border_color};
-            border-radius: 20px;
+            width: 200px; height: 280px; background-color: {card_bg};
+            border: 1px solid {border_color}; border-radius: 20px;
             box-shadow: 0 10px 20px {shadow};
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px 15px;
-            position: relative;
-            margin-top: 15px;
-            /* A Mágica da Suavidade */
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px 15px; position: relative; margin-top: 15px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }}
         
-        .ranking-card:hover {{
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0, 255, 127, 0.15);
-            border-color: #00FF7F;
-        }}
+        .ranking-card:hover {{ transform: translateY(-10px) scale(1.02); box-shadow: 0 20px 40px rgba(0, 255, 127, 0.15); border-color: #00FF7F; }}
         
         .medal-icon {{
-            font-size: 45px;
-            position: absolute;
-            top: -25px;
-            z-index: 10;
+            font-size: 45px; position: absolute; top: -25px; z-index: 10;
             filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15));
-            transition: transform 0.3s ease;
-        }}
-        .ranking-card:hover .medal-icon {{
-            transform: scale(1.2) rotate(10deg);
         }}
         
         .avatar-img {{
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid {card_bg};
-            box-shadow: 0 5px 15px {shadow};
-            margin-bottom: 15px;
-            margin-top: 10px;
-            transition: border-color 0.3s ease;
+            width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
+            border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
+            margin-bottom: 15px; margin-top: 10px; transition: border-color 0.3s ease;
         }}
-        .ranking-card:hover .avatar-img {{
-            border-color: #00FF7F;
-        }}
+        .ranking-card:hover .avatar-img {{ border-color: #00FF7F; }}
         
         .name-text {{
-            font-size: 14px;
-            font-weight: 700;
-            color: {text_color};
-            text-align: center;
-            line-height: 1.3;
-            margin-bottom: 10px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-transform: uppercase;
-            opacity: 0.9;
+            font-size: 14px; font-weight: 700; color: {text_color};
+            text-align: center; line-height: 1.3; margin-bottom: 10px;
+            height: 40px; display: flex; align-items: center; justify-content: center;
+            text-transform: uppercase; opacity: 0.9;
         }}
         
-        .score-text {{
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: -1px;
-        }}
+        .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
         
     </style>
     """, unsafe_allow_html=True)
@@ -520,7 +455,17 @@ def main():
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
+        
+        # --- ANIMAÇÃO DE PULSO NO KPI DE ALERTA ---
+        if qtd_nivel_1 > 0:
+            st.markdown(f"""
+            <div class="alert-card" style="background-color: {st.session_state['menu_bg']}; padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 75, 75, 0.5); text-align: center;">
+                <p style="font-size: 16px; font-weight: 600; color: {st.session_state['menu_txt']}; margin: 0;">🚨 Zona de Atenção</p>
+                <p style="font-size: 32px; font-weight: 800; color: #FF4B4B; margin: 0;">{qtd_nivel_1} Operadores</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
@@ -651,10 +596,13 @@ def main():
                         score = row['TAM']
                         
                         original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
-                        if original_idx == 0: icon = "👑"
-                        elif original_idx == 1: icon = "🥈"
-                        elif original_idx == 2: icon = "🥉"
-                        else: icon = "🎖️"
+                        if original_idx == 0: icon, style_extra = "👑", "floating-icon"
+                        elif original_idx == 1: icon, style_extra = "🥈", ""
+                        elif original_idx == 2: icon, style_extra = "🥉", ""
+                        else: icon, style_extra = "🎖️", ""
+                        
+                        card_class = "ranking-card"
+                        if original_idx == 0: card_class += " shimmer-card" # Efeito brilho no Top 1
                         
                         if score >= 90: cor_val = "#00FF7F"
                         elif score >= 70: cor_val = "#FFD700"
@@ -663,7 +611,13 @@ def main():
                         nome_formatado = nome.replace(" ", "+")
                         avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                         
-                        html_cards += f"""<div class="ranking-card"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div></div>"""
+                        html_cards += f"""
+                        <div class="{card_class}">
+                            <div class="medal-icon {style_extra}">{icon}</div>
+                            <img src="{avatar_url}" class="avatar-img">
+                            <div class="name-text">{nome}</div>
+                            <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
+                        </div>"""
                     
                     html_cards += '</div>'
                     st.markdown(html_cards, unsafe_allow_html=True)
