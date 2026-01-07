@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import gspread
 import plotly.express as px
-import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 import time 
@@ -10,8 +9,10 @@ import time
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
+# Inicialização de Session State
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
+if 'selected_operator' not in st.session_state: st.session_state['selected_operator'] = None # Para controlar o clique
 
 # --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
@@ -91,7 +92,7 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* RANKING CARD VISUAL (HTML puro para o visual) */
+        /* RANKING CARD VISUAL */
         .ranking-card-inner {{
             width: 100%;
             background-color: {card_bg};
@@ -120,7 +121,7 @@ def aplicar_tema():
         }}
         .score-text {{ font-size: 22px; font-weight: 900; letter-spacing: -1px; }}
         
-        /* Botão Personalizado dentro do Card */
+        /* Botão Personalizado */
         .stButton button {{
             width: 100%;
             border-radius: 20px;
@@ -331,41 +332,7 @@ def login():
                 else:
                     st.error("Usuário não encontrado.")
 
-# --- 9. DIALOG (MODAL) PARA DETALHES ---
-@st.experimental_dialog("📊 Detalhes do Colaborador")
-def mostrar_detalhes_operador(nome_op, df_detalhado):
-    st.markdown(f"### {nome_op}")
-    st.markdown("---")
-    
-    # Filtra os dados daquele operador na tabela principal (df_grafico_total)
-    # df_grafico_total tem colunas: Operador, Metrica, Datas...
-    if not df_detalhado.empty:
-        df_op = df_detalhado[df_detalhado['Operador'] == nome_op]
-        
-        if not df_op.empty:
-            # Pivot para mostrar bonitinho
-            # Transforma as métricas em linhas
-            metrics_to_show = df_op['Metrica'].unique()
-            
-            for metrica in metrics_to_show:
-                # Pega a linha dessa métrica
-                linha = df_op[df_op['Metrica'] == metrica]
-                # Pega os valores (excluindo as colunas de texto)
-                valores = linha.iloc[:, 2:].values.flatten()
-                
-                # Calcula uma média ou mostra o último valor válido
-                # Aqui vamos fazer um mini gráfico sparkline se possível, ou apenas mostrar os dados
-                st.markdown(f"**{metrica}**")
-                
-                # Cria um mini dataframe para exibir
-                df_mini = pd.DataFrame([valores], columns=linha.columns[2:])
-                st.dataframe(df_mini, hide_index=True, use_container_width=True)
-        else:
-            st.warning("Dados detalhados não encontrados para este operador.")
-    else:
-        st.error("Base de dados indisponível.")
-
-# --- 10. PAINEL PRINCIPAL ---
+# --- 9. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
@@ -455,8 +422,7 @@ def main():
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
-            # --- CORREÇÃO SOLICITADA: CONTA APENAS QUEM TEM TAM < 70 E TAM > 0 ---
-            # Exclui os zerados (férias, etc)
+            # --- CONTAGEM AJUSTADA: < 70% E > 0% ---
             df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
             qtd_nivel_1 = len(df_risco_real)
             
@@ -466,7 +432,6 @@ def main():
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        # KPI 3 MOSTRA A CONTAGEM AJUSTADA
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -571,6 +536,32 @@ def main():
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             
+            # --- ZONA DE DETALHES EXPANSÍVEL (Substitui o Modal quebrou) ---
+            if st.session_state['selected_operator']:
+                with st.container(border=True):
+                    col_close, col_title = st.columns([1, 10])
+                    with col_close:
+                        if st.button("❌", key="btn_close_details"):
+                            st.session_state['selected_operator'] = None
+                            st.rerun()
+                    with col_title:
+                        st.markdown(f"### 📊 Detalhes: {st.session_state['selected_operator']}")
+                    
+                    # Mostra os dados do operador selecionado
+                    df_op = df_grafico_total[df_grafico_total['Operador'] == st.session_state['selected_operator']]
+                    if not df_op.empty:
+                        metrics_to_show = df_op['Metrica'].unique()
+                        for metrica in metrics_to_show:
+                            linha = df_op[df_op['Metrica'] == metrica]
+                            valores = linha.iloc[:, 2:].values.flatten()
+                            st.markdown(f"**{metrica}**")
+                            df_mini = pd.DataFrame([valores], columns=linha.columns[2:])
+                            st.dataframe(df_mini, hide_index=True, use_container_width=True)
+                    else:
+                        st.warning("Sem dados detalhados.")
+                st.markdown("---")
+
+            # --- FILTROS ---
             f1, f2, f3 = st.columns(3)
             with f1: check_high = st.checkbox("🟢 Acima de 90%", value=True)
             with f2: check_med = st.checkbox("🟡 70% a 89%", value=True)
@@ -591,10 +582,7 @@ def main():
                 df_filtered = df_rank_cards.loc[filtro_indices]
                 
                 if not df_filtered.empty:
-                    # --- INTERATIVIDADE REAL: GRID DE COLUNAS DO STREAMLIT ---
-                    # Para inserir botões que funcionam, precisamos usar st.columns
-                    # Vamos criar 5 colunas por linha
-                    
+                    # GRID DE COLUNAS PARA OS CARDS
                     cols_per_row = 5
                     rows = [df_filtered.iloc[i:i+cols_per_row] for i in range(0, len(df_filtered), cols_per_row)]
                     
@@ -605,7 +593,6 @@ def main():
                                 nome = operator_row['Colaborador']
                                 score = operator_row['TAM']
                                 
-                                # Acha a posição original para a medalha
                                 original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
                                 if original_idx == 0: icon = "👑"
                                 elif original_idx == 1: icon = "🥈"
@@ -619,7 +606,7 @@ def main():
                                 nome_formatado = nome.replace(" ", "+")
                                 avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                                 
-                                # Renderiza o Visual do Card
+                                # Renderiza Card Visual
                                 st.markdown(f"""
                                 <div class="ranking-card-inner">
                                     <div class="medal-icon">{icon}</div>
@@ -629,10 +616,10 @@ def main():
                                 </div>
                                 """, unsafe_allow_html=True)
                                 
-                                # --- BOTÃO DE INTERAÇÃO (PYTHON PURO) ---
-                                if st.button("🔍 Ver Métricas", key=f"btn_details_{original_idx}"):
-                                    mostrar_detalhes_operador(nome, df_grafico_total)
-                                    
+                                # Botão de Ação (Abre a área de detalhes acima)
+                                if st.button("🔍 Ver Métricas", key=f"btn_{original_idx}"):
+                                    st.session_state['selected_operator'] = nome
+                                    st.rerun()
                 else:
                     st.warning("Nenhum operador encontrado com os filtros selecionados.")
             else:
