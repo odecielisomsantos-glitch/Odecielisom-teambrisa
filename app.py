@@ -12,7 +12,7 @@ st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_ic
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
-# --- 2. LÓGICA DE TEMAS ---
+# --- 2. LÓGICA DE TEMAS E INTERATIVIDADE ---
 def aplicar_tema():
     tema = st.session_state['tema']
     
@@ -21,9 +21,9 @@ def aplicar_tema():
         sidebar_bg = "#161B22"
         text_color = "#E6EDF3"
         card_bg = "#161B22"
-        border_color = "#30363D"
+        border_color = "rgba(48, 54, 61, 0.5)" # Borda mais sutil
         metric_label = "#E6EDF3"
-        shadow = "rgba(0,0,0,0.3)"
+        shadow = "rgba(0,0,0,0.4)"
         
         st.session_state['chart_bg'] = 'rgba(0,0,0,0)'
         st.session_state['chart_font'] = '#E6EDF3'
@@ -33,13 +33,13 @@ def aplicar_tema():
         st.session_state['menu_txt'] = "#E6EDF3"
         
     else: # TEMA CLARO
-        bg_color = "#F8F9FA"
+        bg_color = "#F8F9FA" 
         sidebar_bg = "#FFFFFF"
         text_color = "#212529"
         card_bg = "#FFFFFF"
-        border_color = "#DEE2E6"
+        border_color = "rgba(0,0,0,0.05)" # Borda quase invisível
         metric_label = "#495057"
-        shadow = "rgba(0,0,0,0.1)"
+        shadow = "rgba(0,0,0,0.08)" # Sombra suave premium
         
         st.session_state['chart_bg'] = 'rgba(255,255,255,0)'
         st.session_state['chart_font'] = '#212529'
@@ -55,39 +55,102 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
+        /* ANIMAÇÃO DE ENTRADA SUAVE (FADE IN + SLIDE UP) */
+        @keyframes fadeInUp {{
+            from {{ opacity: 0; transform: translate3d(0, 20px, 0); }}
+            to {{ opacity: 1; transform: translate3d(0, 0, 0); }}
+        }}
+        
+        /* Aplica animação ao corpo principal */
+        .block-container {{
+            animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }}
+
+        /* Fundo e Texto */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-        [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
+        [data-testid="stSidebar"] {{ 
+            background-color: {sidebar_bg}; 
+            border-right: 1px solid {border_color};
+            transition: all 0.3s ease;
+        }}
+        
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
+        /* KPIs - Efeito Glass e Hover */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg}; border: 1px solid {border_color};
-            padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px {shadow};
+            background-color: {card_bg}; 
+            border: 1px solid {border_color};
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px {shadow};
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
+        div[data-testid="stMetric"]:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px {shadow};
+        }}
+        
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
-        div[data-testid="stMetricLabel"] {{ font-size: 18px !important; font-weight: 700 !important; color: {metric_label}; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 600 !important; color: {metric_label}; opacity: 0.8; }}
         
-        .block-container {{ padding-top: 2rem; padding-bottom: 5rem; }}
-        
-        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
-            background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
+        /* Inputs Interativos */
+        .stSelectbox div[data-baseweb="select"] > div, .stTextInput input {{
+            background-color: {card_bg}; 
+            color: {text_color}; 
+            border-color: {border_color}; 
+            border-radius: 8px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }}
+        .stSelectbox div[data-baseweb="select"] > div:hover, .stTextInput input:hover {{
+            border-color: #00FF7F;
         }}
         
+        /* Botões Profissionais */
+        .stButton button {{
+            border-radius: 8px;
+            font-weight: 600;
+            border: 1px solid {border_color};
+            background-color: {card_bg};
+            color: {text_color};
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }}
+        .stButton button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 127, 0.2);
+            border-color: #00FF7F;
+            color: #00FF7F;
+        }}
+        
+        /* Abas Modernas */
         .stTabs [data-baseweb="tab"] {{
-            background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
-            font-size: 16px !important; font-weight: 600; border-radius: 5px;
+            background-color: transparent; 
+            border: none;
+            color: {text_color};
+            font-size: 16px !important; 
+            font-weight: 600;
+            padding-bottom: 10px;
+            transition: color 0.3s ease;
+        }}
+        .stTabs [data-baseweb="tab"]:hover {{
+            color: #00FF7F;
         }}
         .stTabs [aria-selected="true"] {{
-            background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
+            color: #00FF7F !important;
+            border-bottom: 3px solid #00FF7F !important;
+        }}
+        .stTabs [data-baseweb="tab-list"] {{
+            border-bottom: 1px solid {border_color};
+            gap: 20px;
         }}
         
-        /* RANKING GRID SYSTEM */
+        /* --- RANKING GRID --- */
         .ranking-grid {{
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
-            padding: 20px 0;
+            gap: 25px;
+            padding: 30px 0;
         }}
         
         .ranking-card {{
@@ -95,20 +158,22 @@ def aplicar_tema():
             height: 280px;
             background-color: {card_bg};
             border: 1px solid {border_color};
-            border-radius: 16px;
-            box-shadow: 0 4px 12px {shadow};
+            border-radius: 20px;
+            box-shadow: 0 10px 20px {shadow};
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 20px 15px;
-            transition: transform 0.3s ease;
             position: relative;
             margin-top: 15px;
+            /* A Mágica da Suavidade */
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
         }}
         
         .ranking-card:hover {{
-            transform: translateY(-5px);
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 255, 127, 0.15);
             border-color: #00FF7F;
         }}
         
@@ -117,7 +182,11 @@ def aplicar_tema():
             position: absolute;
             top: -25px;
             z-index: 10;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15));
+            transition: transform 0.3s ease;
+        }}
+        .ranking-card:hover .medal-icon {{
+            transform: scale(1.2) rotate(10deg);
         }}
         
         .avatar-img {{
@@ -126,9 +195,13 @@ def aplicar_tema():
             border-radius: 50%;
             object-fit: cover;
             border: 4px solid {card_bg};
-            box-shadow: 0 3px 6px {shadow};
+            box-shadow: 0 5px 15px {shadow};
             margin-bottom: 15px;
             margin-top: 10px;
+            transition: border-color 0.3s ease;
+        }}
+        .ranking-card:hover .avatar-img {{
+            border-color: #00FF7F;
         }}
         
         .name-text {{
@@ -136,19 +209,22 @@ def aplicar_tema():
             font-weight: 700;
             color: {text_color};
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.3;
             margin-bottom: 10px;
             height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             text-transform: uppercase;
+            opacity: 0.9;
         }}
         
         .score-text {{
             font-size: 26px;
             font-weight: 900;
+            letter-spacing: -1px;
         }}
+        
     </style>
     """, unsafe_allow_html=True)
 
@@ -353,7 +429,6 @@ def main():
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
-    
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -549,7 +624,6 @@ def main():
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             
-            # --- FILTROS DE FAIXA (CHECKBOXES) ---
             f1, f2, f3 = st.columns(3)
             with f1: check_high = st.checkbox("🟢 Acima de 90%", value=True)
             with f2: check_med = st.checkbox("🟡 70% a 89%", value=True)
@@ -558,7 +632,6 @@ def main():
             if not df_tam_total.empty:
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # --- APLICAÇÃO DO FILTRO ---
                 filtro_indices = []
                 for i, row in df_rank_cards.iterrows():
                     v = row['TAM']
@@ -566,7 +639,6 @@ def main():
                     if v >= 90 and check_high: keep = True
                     elif 70 <= v < 90 and check_med: keep = True
                     elif v < 70 and check_low: keep = True
-                    
                     if keep: filtro_indices.append(i)
                 
                 df_filtered = df_rank_cards.loc[filtro_indices]
@@ -578,14 +650,7 @@ def main():
                         nome = row['Colaborador']
                         score = row['TAM']
                         
-                        # Ícone baseado na posição original do ranking (ou seja, quem é Top 1 continua sendo Top 1)
-                        # Nota: Se filtrar, o Top 1 global pode sumir, mas a medalha deve refletir o status real.
-                        # Para simplificar, vou dar medalhas baseadas na nota ou índice original. 
-                        # Aqui usarei o índice original do DataFrame completo para garantir que o Top 1 seja sempre Ouro.
-                        
-                        # Acha o índice original para dar a medalha certa
                         original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
-                        
                         if original_idx == 0: icon = "👑"
                         elif original_idx == 1: icon = "🥈"
                         elif original_idx == 2: icon = "🥉"
