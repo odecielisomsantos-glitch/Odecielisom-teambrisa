@@ -55,60 +55,36 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
-        /* --- ANIMAÇÕES PREMIUM --- */
-        @keyframes fadeInUp {{
-            from {{ opacity: 0; transform: translate3d(0, 20px, 0); }}
-            to {{ opacity: 1; transform: translate3d(0, 0, 0); }}
-        }}
+        /* ANIMAÇÕES */
+        @keyframes fadeInUp {{ from {{ opacity: 0; transform: translate3d(0, 20px, 0); }} to {{ opacity: 1; transform: translate3d(0, 0, 0); }} }}
         .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
 
-        @keyframes float {{
-            0% {{ transform: translateY(0px) rotate(0deg); }}
-            50% {{ transform: translateY(-10px) rotate(5deg); }}
-            100% {{ transform: translateY(0px) rotate(0deg); }}
-        }}
-        .floating-icon {{ animation: float 3s ease-in-out infinite; }}
-
-        /* Animação de Pulso Vermelho para o Card de Risco */
-        @keyframes pulse-red {{
-            0% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); }}
-            70% {{ box-shadow: 0 0 0 15px rgba(255, 75, 75, 0); }}
-            100% {{ box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }}
-        }}
-        .alert-card {{
-            animation: pulse-red 2s infinite;
-            border: 1px solid #FF4B4B !important;
-        }}
-
-        @keyframes shimmer {{
-            0% {{ background-position: -200% 0; }}
-            100% {{ background-position: 200% 0; }}
-        }}
-        .shimmer-card {{
-            background: linear-gradient(120deg, {card_bg} 30%, rgba(255,255,255, 0.4) 50%, {card_bg} 70%);
-            background-size: 200% 100%;
-            animation: shimmer 4s infinite linear;
-        }}
-
-        /* --- ESTILOS GERAIS --- */
+        /* ESTILOS GERAIS */
         .stApp {{ background-color: {bg_color}; color: {text_color}; }}
         [data-testid="stSidebar"] {{ background-color: {sidebar_bg}; border-right: 1px solid {border_color}; }}
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
+        /* KPI CARDS (Quadrados Pequenos) */
         div[data-testid="stMetric"] {{
-            background-color: {card_bg}; border: 1px solid {border_color};
-            padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px {shadow};
+            background-color: {card_bg}; 
+            border: 1px solid {border_color};
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px {shadow};
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+            height: 100%; /* Garante altura igual */
         }}
         div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
-        div[data-testid="stMetricLabel"] {{ font-size: 18px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
+        /* Inputs */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
         
+        /* Tabs */
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
             font-size: 16px !important; font-weight: 600; border-radius: 5px;
@@ -118,10 +94,7 @@ def aplicar_tema():
         }}
         
         /* RANKING GRID */
-        .ranking-grid {{
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0;
-        }}
-        
+        .ranking-grid {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0; }}
         .ranking-card {{
             width: 200px; height: 280px; background-color: {card_bg};
             border: 1px solid {border_color}; border-radius: 20px;
@@ -130,28 +103,18 @@ def aplicar_tema():
             padding: 20px 15px; position: relative; margin-top: 15px;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }}
-        
         .ranking-card:hover {{ transform: translateY(-10px) scale(1.02); box-shadow: 0 20px 40px rgba(0, 255, 127, 0.15); border-color: #00FF7F; }}
         
-        .medal-icon {{
-            font-size: 45px; position: absolute; top: -25px; z-index: 10;
-            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15));
-        }}
-        
+        .medal-icon {{ font-size: 45px; position: absolute; top: -25px; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15)); }}
         .avatar-img {{
             width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
             border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
-            margin-bottom: 15px; margin-top: 10px; transition: border-color 0.3s ease;
+            margin-bottom: 15px; margin-top: 10px;
         }}
-        .ranking-card:hover .avatar-img {{ border-color: #00FF7F; }}
-        
         .name-text {{
-            font-size: 14px; font-weight: 700; color: {text_color};
-            text-align: center; line-height: 1.3; margin-bottom: 10px;
-            height: 40px; display: flex; align-items: center; justify-content: center;
-            text-transform: uppercase; opacity: 0.9;
+            font-size: 14px; font-weight: 700; color: {text_color}; text-align: center;
+            line-height: 1.3; margin-bottom: 10px; height: 40px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
         }}
-        
         .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
         
     </style>
@@ -434,48 +397,23 @@ def main():
         st.title("📊 Painel Tático")
         st.markdown("---")
         
-        # --- BLOCO DE KPIS SUPERIORES ---
         kpi1, kpi2, kpi3 = st.columns(3)
         if not df_tam_total.empty:
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
-            
-            # Melhor Performance (Primeiro da lista)
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
-            # --- MUDANÇA: PONTO DE ATENÇÃO (Último da lista) ---
-            pior_op_nome = df_tam_total.iloc[-1]['Colaborador']
-            pior_op_valor = df_tam_total.iloc[-1]['TAM']
-            
-            if not df_n1_total.empty:
-                qtd_nivel_1 = len(df_n1_total[df_n1_total['Nível 1'] > 0])
-            else:
-                qtd_nivel_1 = 0
+            # --- VOLTANDO AO PADRÃO: CONTAGEM DE PESSOAS EM RISCO ---
+            # Conta quantas pessoas estão abaixo de 70% (no df_tam_total)
+            qtd_nivel_1 = len(df_tam_total[df_tam_total['TAM'] < 70])
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
-            melhor_op_nome, pior_op_nome = "-", "-"
-            pior_op_valor = 0
+            melhor_op_nome = "-"
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        
-        # --- AQUI: O KPI 3 AGORA É O 'PONTO DE ATENÇÃO' COM NOME DA PESSOA ---
-        # Usa o CSS 'alert-card' que já tem animação de pulso vermelho
-        st.markdown(f"""
-        <style>
-            /* Posicionamento forçado para substituir o st.metric padrão */
-            [data-testid="column"]:nth-of-type(3) div[data-testid="stMetric"] {{ display: none; }} 
-        </style>
-        """, unsafe_allow_html=True)
-        
-        with kpi3:
-            st.markdown(f"""
-            <div class="alert-card" style="background-color: {st.session_state['menu_bg']}; padding: 15px; border-radius: 12px; text-align: left; height: 100%;">
-                <p style="font-size: 16px; font-weight: 600; color: {st.session_state['menu_txt']}; margin: 0; opacity: 0.8;">🚨 Ponto de Atenção</p>
-                <p style="font-size: 24px; font-weight: 800; color: #E6EDF3; margin: 5px 0 0 0; color: {st.session_state['menu_txt']}; line-height: 1.2;">{pior_op_nome}</p>
-                <p style="font-size: 28px; font-weight: 800; color: #FF4B4B; margin: 0;">{pior_op_valor:.1f}%</p>
-            </div>
-            """, unsafe_allow_html=True)
+        # KPI 3 AGORA MOSTRA APENAS A CONTAGEM (QUADRADO PEQUENO PADRÃO)
+        kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
         kpi4, kpi5 = st.columns(2)
