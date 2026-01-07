@@ -9,10 +9,8 @@ import time
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-# Inicialização de Session State
 if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
-if 'selected_operator' not in st.session_state: st.session_state['selected_operator'] = None # Para controlar o clique
 
 # --- 2. LÓGICA DE TEMAS ---
 def aplicar_tema():
@@ -57,7 +55,7 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
-        /* ANIMAÇÕES */
+        /* ANIMAÇÕES GERAIS */
         @keyframes fadeInUp {{ from {{ opacity: 0; transform: translate3d(0, 20px, 0); }} to {{ opacity: 1; transform: translate3d(0, 0, 0); }} }}
         .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
 
@@ -74,16 +72,16 @@ def aplicar_tema():
             border-radius: 12px; 
             box-shadow: 0 4px 6px {shadow};
             height: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
+        div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
         div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
-        /* Inputs */
+        /* Inputs & Tabs */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
-        
-        /* Tabs */
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
             font-size: 16px !important; font-weight: 600; border-radius: 5px;
@@ -92,48 +90,97 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* RANKING CARD VISUAL */
-        .ranking-card-inner {{
+        /* --- CSS 3D FLIP CARD (A MÁGICA ACONTECE AQUI) --- */
+        .ranking-grid {{
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0; perspective: 1000px;
+        }}
+        
+        .flip-card {{
+            background-color: transparent;
+            width: 220px;
+            height: 300px;
+            perspective: 1000px; /* Necessário para o efeito 3D */
+            margin-top: 15px;
+        }}
+        
+        .flip-card-inner {{
+            position: relative;
             width: 100%;
-            background-color: {card_bg};
-            border: 1px solid {border_color};
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
             border-radius: 16px;
-            box-shadow: 0 4px 12px {shadow};
+            box-shadow: 0 4px 8px {shadow};
+        }}
+        
+        /* Efeito de Rotação ao Passar o Mouse (Hover) */
+        .flip-card:hover .flip-card-inner {{
+            transform: rotateY(180deg);
+        }}
+        
+        /* Frente e Verso */
+        .flip-card-front, .flip-card-back {{
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            border: 1px solid {border_color};
+            background-color: {card_bg};
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px 10px;
-            position: relative;
-            margin-top: 15px;
-            margin-bottom: 10px;
+            padding: 15px;
         }}
         
-        .medal-icon {{ font-size: 40px; position: absolute; top: -20px; z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2)); }}
+        /* Estilo da Frente */
+        .flip-card-front {{
+            z-index: 2;
+        }}
+        
+        /* Estilo do Verso (Métricas) */
+        .flip-card-back {{
+            transform: rotateY(180deg);
+            background-color: {card_bg};
+            border: 1px solid #00FF7F; /* Borda verde suave no verso */
+            box-shadow: 0 0 15px rgba(0, 255, 127, 0.1);
+        }}
+        
+        /* Elementos da Frente */
+        .medal-icon {{ font-size: 45px; position: absolute; top: -25px; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15)); }}
         .avatar-img {{
-            width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
+            width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
             border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
-            margin-bottom: 10px; margin-top: 10px;
+            margin-bottom: 15px; margin-top: 15px;
         }}
         .name-text {{
-            font-size: 13px; font-weight: 700; color: {text_color}; text-align: center;
-            line-height: 1.2; margin-bottom: 5px; height: 35px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+            font-size: 14px; font-weight: 700; color: {text_color};
+            line-height: 1.3; margin-bottom: 10px; height: 40px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
         }}
-        .score-text {{ font-size: 22px; font-weight: 900; letter-spacing: -1px; }}
+        .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
         
-        /* Botão Personalizado */
-        .stButton button {{
+        /* Elementos do Verso (Lista de Métricas) */
+        .metrics-list {{
             width: 100%;
-            border-radius: 20px;
-            border: 1px solid {border_color};
-            background-color: transparent;
+            text-align: left;
+            font-size: 13px;
             color: {text_color};
-            font-size: 12px;
         }}
-        .stButton button:hover {{
-            border-color: #00FF7F;
-            color: #00FF7F;
-            background-color: {card_bg};
+        .metric-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid {border_color};
+        }}
+        .metric-row:last-child {{ border-bottom: none; }}
+        .metric-label {{ font-weight: 600; opacity: 0.8; }}
+        .metric-val {{ font-weight: 800; color: #00FF7F; }}
+        
+        .hint-text {{
+            position: absolute; bottom: 10px; font-size: 10px; color: {metric_label}; opacity: 0.6;
         }}
 
     </style>
@@ -271,7 +318,31 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. VISUALIZAÇÃO ---
+# --- 6. FUNÇÃO PARA EXTRAIR MÉTRICAS DO OPERADOR ---
+def extrair_metricas_resumo(nome, df_completo):
+    # Tenta extrair métricas específicas para o verso do cartão
+    # Se não encontrar, coloca um traço
+    metricas = {
+        "CSAT": "-", "TPC": "-", "Interação": "-", "IR": "-", "Pontualidade": "-", "Meta": "-"
+    }
+    
+    if not df_completo.empty:
+        df_op = df_completo[df_completo['Operador'] == nome]
+        if not df_op.empty:
+            # Tenta achar o valor mais recente (última coluna com dados)
+            for m in metricas.keys():
+                linha = df_op[df_op['Metrica'].str.contains(m, case=False, na=False)]
+                if not linha.empty:
+                    # Pega a média dos valores válidos ou o último valor
+                    # Simplificação: Pegar o último valor não nulo da linha
+                    vals = linha.iloc[0, 2:].values
+                    vals_validos = [v for v in vals if v != "" and v != "-"]
+                    if vals_validos:
+                        metricas[m] = vals_validos[-1] # Pega o último
+    
+    return metricas
+
+# --- 7. VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -295,7 +366,7 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     else:
         st.caption("Sem dados.")
 
-# --- 7. TAREFAS ---
+# --- 8. TAREFAS ---
 def adicionar_tarefa(titulo, categoria, responsavel):
     nova_tarefa = {'id': int(time.time() * 1000), 'titulo': titulo, 'categoria': categoria, 'responsavel': responsavel, 'status': 'Não Iniciado'}
     st.session_state['tarefas'].append(nova_tarefa)
@@ -309,7 +380,7 @@ def mover_tarefa(id_tarefa, novo_status):
 def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
-# --- 8. LOGIN ---
+# --- 9. LOGIN ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -332,7 +403,7 @@ def login():
                 else:
                     st.error("Usuário não encontrado.")
 
-# --- 9. PAINEL PRINCIPAL ---
+# --- 10. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
@@ -422,7 +493,7 @@ def main():
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
-            # --- CONTAGEM AJUSTADA: < 70% E > 0% ---
+            # --- CONTAGEM AJUSTADA E RESTAURADA PARA O KPI PEQUENO ---
             df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
             qtd_nivel_1 = len(df_risco_real)
             
@@ -432,6 +503,7 @@ def main():
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
+        # KPI 3 VOLTA AO NORMAL
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -536,32 +608,6 @@ def main():
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             
-            # --- ZONA DE DETALHES EXPANSÍVEL (Substitui o Modal quebrou) ---
-            if st.session_state['selected_operator']:
-                with st.container(border=True):
-                    col_close, col_title = st.columns([1, 10])
-                    with col_close:
-                        if st.button("❌", key="btn_close_details"):
-                            st.session_state['selected_operator'] = None
-                            st.rerun()
-                    with col_title:
-                        st.markdown(f"### 📊 Detalhes: {st.session_state['selected_operator']}")
-                    
-                    # Mostra os dados do operador selecionado
-                    df_op = df_grafico_total[df_grafico_total['Operador'] == st.session_state['selected_operator']]
-                    if not df_op.empty:
-                        metrics_to_show = df_op['Metrica'].unique()
-                        for metrica in metrics_to_show:
-                            linha = df_op[df_op['Metrica'] == metrica]
-                            valores = linha.iloc[:, 2:].values.flatten()
-                            st.markdown(f"**{metrica}**")
-                            df_mini = pd.DataFrame([valores], columns=linha.columns[2:])
-                            st.dataframe(df_mini, hide_index=True, use_container_width=True)
-                    else:
-                        st.warning("Sem dados detalhados.")
-                st.markdown("---")
-
-            # --- FILTROS ---
             f1, f2, f3 = st.columns(3)
             with f1: check_high = st.checkbox("🟢 Acima de 90%", value=True)
             with f2: check_med = st.checkbox("🟡 70% a 89%", value=True)
@@ -582,44 +628,56 @@ def main():
                 df_filtered = df_rank_cards.loc[filtro_indices]
                 
                 if not df_filtered.empty:
-                    # GRID DE COLUNAS PARA OS CARDS
-                    cols_per_row = 5
-                    rows = [df_filtered.iloc[i:i+cols_per_row] for i in range(0, len(df_filtered), cols_per_row)]
+                    html_cards = '<div class="ranking-grid">'
                     
-                    for row_df in rows:
-                        cols = st.columns(cols_per_row)
-                        for idx_col, (idx_df, operator_row) in enumerate(row_df.iterrows()):
-                            with cols[idx_col]:
-                                nome = operator_row['Colaborador']
-                                score = operator_row['TAM']
-                                
-                                original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
-                                if original_idx == 0: icon = "👑"
-                                elif original_idx == 1: icon = "🥈"
-                                elif original_idx == 2: icon = "🥉"
-                                else: icon = "🎖️"
-                                
-                                if score >= 90: cor_val = "#00FF7F"
-                                elif score >= 70: cor_val = "#FFD700"
-                                else: cor_val = "#FF4B4B"
-                                
-                                nome_formatado = nome.replace(" ", "+")
-                                avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
-                                
-                                # Renderiza Card Visual
-                                st.markdown(f"""
-                                <div class="ranking-card-inner">
+                    for idx, row in df_filtered.iterrows():
+                        nome = row['Colaborador']
+                        score = row['TAM']
+                        
+                        original_idx = df_rank_cards[df_rank_cards['Colaborador'] == nome].index[0]
+                        if original_idx == 0: icon = "👑"
+                        elif original_idx == 1: icon = "🥈"
+                        elif original_idx == 2: icon = "🥉"
+                        else: icon = "🎖️"
+                        
+                        if score >= 90: cor_val = "#00FF7F"
+                        elif score >= 70: cor_val = "#FFD700"
+                        else: cor_val = "#FF4B4B"
+                        
+                        nome_formatado = nome.replace(" ", "+")
+                        avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
+                        
+                        # --- RECUPERA AS MÉTRICAS REAIS DO OPERADOR ---
+                        dados_op = extrair_metricas_resumo(nome, df_grafico_total)
+                        
+                        # HTML DO CARD FLIP 3D
+                        html_cards += f"""
+                        <div class="flip-card">
+                            <div class="flip-card-inner">
+                                <div class="flip-card-front">
                                     <div class="medal-icon">{icon}</div>
                                     <img src="{avatar_url}" class="avatar-img">
                                     <div class="name-text">{nome}</div>
                                     <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
+                                    <div style="font-size: 10px; opacity: 0.7; margin-top: 5px;">👆 Passe o mouse</div>
                                 </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Botão de Ação (Abre a área de detalhes acima)
-                                if st.button("🔍 Ver Métricas", key=f"btn_{original_idx}"):
-                                    st.session_state['selected_operator'] = nome
-                                    st.rerun()
+                                <div class="flip-card-back">
+                                    <h4 style="margin-bottom: 10px; color: {st.session_state['menu_txt']};">Métricas</h4>
+                                    <div class="metrics-list">
+                                        <div class="metric-row"><span class="metric-label">CSAT:</span> <span class="metric-val">{dados_op['CSAT']}</span></div>
+                                        <div class="metric-row"><span class="metric-label">TPC:</span> <span class="metric-val">{dados_op['TPC']}</span></div>
+                                        <div class="metric-row"><span class="metric-label">Interação:</span> <span class="metric-val">{dados_op['Interação']}</span></div>
+                                        <div class="metric-row"><span class="metric-label">IR:</span> <span class="metric-val">{dados_op['IR']}</span></div>
+                                        <div class="metric-row"><span class="metric-label">Pontualidade:</span> <span class="metric-val">{dados_op['Pontualidade']}</span></div>
+                                        <div class="metric-row"><span class="metric-label">Meta:</span> <span class="metric-val">{dados_op['Meta']}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        """
+                    
+                    html_cards += '</div>'
+                    st.markdown(html_cards, unsafe_allow_html=True)
                 else:
                     st.warning("Nenhum operador encontrado com os filtros selecionados.")
             else:
