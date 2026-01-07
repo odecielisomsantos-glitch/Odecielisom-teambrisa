@@ -9,7 +9,8 @@ import time
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
 
-if 'tema' not in st.session_state: st.session_state['tema'] = 'Escuro'
+# MUDANÇA: Padrão agora é 'Claro'
+if 'tema' not in st.session_state: st.session_state['tema'] = 'Claro'
 if 'tarefas' not in st.session_state: st.session_state['tarefas'] = []
 
 # --- 2. LÓGICA DE TEMAS ---
@@ -87,81 +88,62 @@ def aplicar_tema():
             background-color: #238636 !important; color: white !important;
         }}
         
-        /* ESTILO DO SCROLL HORIZONTAL DOS CARDS */
-        .scrolling-wrapper {{
+        /* --- ESTILO DOS CARDS DE RANKING --- */
+        .ranking-container {{
             display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 20px;
             gap: 20px;
+            padding: 20px 0;
+            scrollbar-width: thin;
         }}
-        
-        /* ESTILO DO CARD INDIVIDUAL */
         .ranking-card {{
             flex: 0 0 auto;
-            width: 160px; /* Largura do cartão */
+            width: 180px;
+            height: 260px;
             background-color: {card_bg};
             border: 1px solid {border_color};
             border-radius: 15px;
-            padding: 20px 10px;
-            text-align: center;
-            transition: transform 0.2s;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: space-between;
-            min-height: 240px;
+            justify-content: center;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
         }}
         .ranking-card:hover {{
-            transform: scale(1.05);
+            transform: translateY(-5px);
             border-color: #00FF7F;
         }}
-        
+        .medal-icon {{
+            font-size: 35px;
+            margin-bottom: -10px;
+            z-index: 2;
+        }}
         .avatar-img {{
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
-            width: 80px;
-            height: 80px;
             object-fit: cover;
-            margin-bottom: 10px;
             border: 3px solid {border_color};
+            margin-bottom: 10px;
         }}
-        
-        .rank-icon {{
-            font-size: 30px;
-            margin-bottom: -15px;
-            z-index: 10;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }}
-        
         .name-text {{
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
+            text-align: center;
             color: {text_color};
             margin-bottom: 5px;
-            height: 40px; /* Altura fixa p/ alinhar */
+            height: 40px; /* Altura fixa para nomes longos */
             display: flex;
             align-items: center;
             justify-content: center;
             line-height: 1.2;
         }}
-        
         .score-text {{
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 800;
-        }}
-        
-        /* Barra de rolagem bonita */
-        .scrolling-wrapper::-webkit-scrollbar {{
-            height: 8px;
-        }}
-        .scrolling-wrapper::-webkit-scrollbar-track {{
-            background: {border_color};
-            border-radius: 4px;
-        }}
-        .scrolling-wrapper::-webkit-scrollbar-thumb {{
-            background: #00FF7F;
-            border-radius: 4px;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -560,38 +542,34 @@ def main():
                 renderizar_ranking_visual("🥈 Nível 2", df_n2, "Nível 2", "#FFD700")
                 renderizar_ranking_visual("🥉 Nível 1", df_n1, "Nível 1", "#FF4B4B")
 
-        # --- NOVA LÓGICA DE RANKING VISUAL (CARDS) ---
+        # --- AQUI ESTÁ A CORREÇÃO DO RANKING EM CARDS (HTML) ---
         with tab_ranking:
             st.markdown("### 🏆 Ranking do Time (TAM)")
             if not df_tam_total.empty:
-                # Ordena
                 df_rank_cards = df_tam_total.sort_values(by="TAM", ascending=False).reset_index(drop=True)
                 
-                # Gera HTML dos Cards
-                html_cards = '<div class="scrolling-wrapper">'
+                html_cards = '<div class="ranking-container">'
                 
                 for idx, row in df_rank_cards.iterrows():
                     nome = row['Colaborador']
                     score = row['TAM']
                     
-                    # Definição de Ícone e Cor
-                    if idx == 0: icon, cor_score = "👑", "#FFD700" # Ouro
-                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" # Prata
-                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" # Bronze
-                    else: icon, cor_score = "🎖️", "#00FF7F" # Verde (Padrão)
+                    if idx == 0: icon, cor_score = "👑", "#FFD700" 
+                    elif idx == 1: icon, cor_score = "🥈", "#C0C0C0" 
+                    elif idx == 2: icon, cor_score = "🥉", "#CD7F32" 
+                    else: icon, cor_score = "🎖️", "#00FF7F" 
                     
-                    # Cor da nota baseada na regra
                     if score >= 90: cor_val = "#00FF7F"
                     elif score >= 70: cor_val = "#FFD700"
                     else: cor_val = "#FF4B4B"
                     
-                    # Avatar (API UI Avatars)
                     nome_formatado = nome.replace(" ", "+")
+                    # Fonte de avatar: UI Avatars
                     avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                     
                     html_cards += f"""
                     <div class="ranking-card">
-                        <div class="rank-icon">{icon}</div>
+                        <div class="medal-icon">{icon}</div>
                         <img src="{avatar_url}" class="avatar-img">
                         <div class="name-text">{nome}</div>
                         <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
