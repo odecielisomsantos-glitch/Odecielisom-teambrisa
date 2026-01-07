@@ -55,7 +55,6 @@ def aplicar_tema():
 
     st.markdown(f"""
     <style>
-        /* ANIMAÇÕES GERAIS */
         @keyframes fadeInUp {{ from {{ opacity: 0; transform: translate3d(0, 20px, 0); }} to {{ opacity: 1; transform: translate3d(0, 0, 0); }} }}
         .block-container {{ animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }}
 
@@ -64,7 +63,6 @@ def aplicar_tema():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Segoe UI', sans-serif; font-weight: 700; }}
         p, label, span {{ color: {text_color}; }}
         
-        /* KPI Cards */
         div[data-testid="stMetric"] {{
             background-color: {card_bg}; 
             border: 1px solid {border_color};
@@ -72,16 +70,16 @@ def aplicar_tema():
             border-radius: 12px; 
             box-shadow: 0 4px 6px {shadow};
             height: 100%;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.2s ease;
         }}
-        div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
+        div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); }}
         div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
         div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
-        /* Inputs & Tabs */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
             background-color: {card_bg}; color: {text_color}; border-color: {border_color}; border-radius: 8px;
         }}
+        
         .stTabs [data-baseweb="tab"] {{
             background-color: {card_bg}; border: 1px solid {border_color}; color: {text_color};
             font-size: 16px !important; font-weight: 600; border-radius: 5px;
@@ -90,7 +88,7 @@ def aplicar_tema():
             background-color: #00FF7F !important; color: #000000 !important; border-color: #00FF7F !important;
         }}
         
-        /* --- CSS 3D FLIP CARD (A MÁGICA ACONTECE AQUI) --- */
+        /* --- CSS 3D FLIP CARD --- */
         .ranking-grid {{
             display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0; perspective: 1000px;
         }}
@@ -99,7 +97,7 @@ def aplicar_tema():
             background-color: transparent;
             width: 220px;
             height: 300px;
-            perspective: 1000px; /* Necessário para o efeito 3D */
+            perspective: 1000px;
             margin-top: 15px;
         }}
         
@@ -114,12 +112,10 @@ def aplicar_tema():
             box-shadow: 0 4px 8px {shadow};
         }}
         
-        /* Efeito de Rotação ao Passar o Mouse (Hover) */
         .flip-card:hover .flip-card-inner {{
             transform: rotateY(180deg);
         }}
         
-        /* Frente e Verso */
         .flip-card-front, .flip-card-back {{
             position: absolute;
             width: 100%;
@@ -136,20 +132,15 @@ def aplicar_tema():
             padding: 15px;
         }}
         
-        /* Estilo da Frente */
-        .flip-card-front {{
-            z-index: 2;
-        }}
+        .flip-card-front {{ z-index: 2; }}
         
-        /* Estilo do Verso (Métricas) */
         .flip-card-back {{
             transform: rotateY(180deg);
             background-color: {card_bg};
-            border: 1px solid #00FF7F; /* Borda verde suave no verso */
+            border: 1px solid #00FF7F;
             box-shadow: 0 0 15px rgba(0, 255, 127, 0.1);
         }}
         
-        /* Elementos da Frente */
         .medal-icon {{ font-size: 45px; position: absolute; top: -25px; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15)); }}
         .avatar-img {{
             width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
@@ -162,26 +153,15 @@ def aplicar_tema():
         }}
         .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
         
-        /* Elementos do Verso (Lista de Métricas) */
         .metrics-list {{
-            width: 100%;
-            text-align: left;
-            font-size: 13px;
-            color: {text_color};
+            width: 100%; text-align: left; font-size: 13px; color: {text_color}; margin-top: 10px;
         }}
         .metric-row {{
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid {border_color};
+            display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid {border_color};
         }}
         .metric-row:last-child {{ border-bottom: none; }}
         .metric-label {{ font-weight: 600; opacity: 0.8; }}
         .metric-val {{ font-weight: 800; color: #00FF7F; }}
-        
-        .hint-text {{
-            position: absolute; bottom: 10px; font-size: 10px; color: {metric_label}; opacity: 0.6;
-        }}
 
     </style>
     """, unsafe_allow_html=True)
@@ -318,31 +298,7 @@ def definir_cor_pela_nota(valor):
     elif valor >= 70: return '#FFD700' 
     else: return '#FF4B4B'
 
-# --- 6. FUNÇÃO PARA EXTRAIR MÉTRICAS DO OPERADOR ---
-def extrair_metricas_resumo(nome, df_completo):
-    # Tenta extrair métricas específicas para o verso do cartão
-    # Se não encontrar, coloca um traço
-    metricas = {
-        "CSAT": "-", "TPC": "-", "Interação": "-", "IR": "-", "Pontualidade": "-", "Meta": "-"
-    }
-    
-    if not df_completo.empty:
-        df_op = df_completo[df_completo['Operador'] == nome]
-        if not df_op.empty:
-            # Tenta achar o valor mais recente (última coluna com dados)
-            for m in metricas.keys():
-                linha = df_op[df_op['Metrica'].str.contains(m, case=False, na=False)]
-                if not linha.empty:
-                    # Pega a média dos valores válidos ou o último valor
-                    # Simplificação: Pegar o último valor não nulo da linha
-                    vals = linha.iloc[0, 2:].values
-                    vals_validos = [v for v in vals if v != "" and v != "-"]
-                    if vals_validos:
-                        metricas[m] = vals_validos[-1] # Pega o último
-    
-    return metricas
-
-# --- 7. VISUALIZAÇÃO ---
+# --- 6. VISUALIZAÇÃO ---
 def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
@@ -366,7 +322,7 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     else:
         st.caption("Sem dados.")
 
-# --- 8. TAREFAS ---
+# --- 7. TAREFAS ---
 def adicionar_tarefa(titulo, categoria, responsavel):
     nova_tarefa = {'id': int(time.time() * 1000), 'titulo': titulo, 'categoria': categoria, 'responsavel': responsavel, 'status': 'Não Iniciado'}
     st.session_state['tarefas'].append(nova_tarefa)
@@ -380,7 +336,7 @@ def mover_tarefa(id_tarefa, novo_status):
 def excluir_tarefa(id_tarefa):
     st.session_state['tarefas'] = [t for t in st.session_state['tarefas'] if t['id'] != id_tarefa]
 
-# --- 9. LOGIN ---
+# --- 8. LOGIN ---
 def login():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -403,7 +359,7 @@ def login():
                 else:
                     st.error("Usuário não encontrado.")
 
-# --- 10. PAINEL PRINCIPAL ---
+# --- 9. PAINEL PRINCIPAL ---
 def main():
     dados_brutos = obter_dados_completos()
     if not dados_brutos: st.stop()
@@ -493,7 +449,7 @@ def main():
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
             
-            # --- CONTAGEM AJUSTADA E RESTAURADA PARA O KPI PEQUENO ---
+            # --- CONTAGEM AJUSTADA (IGNORA ZERADOS) ---
             df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
             qtd_nivel_1 = len(df_risco_real)
             
@@ -503,7 +459,6 @@ def main():
 
         kpi1.metric("🎯 Média do Time", f"{media_time:.1f}%")
         kpi2.metric("🏆 Melhor Performance", f"{melhor_op_nome}", f"{melhor_op_valor:.1f}%")
-        # KPI 3 VOLTA AO NORMAL
         kpi3.metric("🚨 Zona de Atenção", f"{qtd_nivel_1} Operadores", delta_color="inverse")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -647,34 +602,8 @@ def main():
                         nome_formatado = nome.replace(" ", "+")
                         avatar_url = f"https://ui-avatars.com/api/?name={nome_formatado}&background=random&color=fff&size=128"
                         
-                        # --- RECUPERA AS MÉTRICAS REAIS DO OPERADOR ---
-                        dados_op = extrair_metricas_resumo(nome, df_grafico_total)
-                        
-                        # HTML DO CARD FLIP 3D
-                        html_cards += f"""
-                        <div class="flip-card">
-                            <div class="flip-card-inner">
-                                <div class="flip-card-front">
-                                    <div class="medal-icon">{icon}</div>
-                                    <img src="{avatar_url}" class="avatar-img">
-                                    <div class="name-text">{nome}</div>
-                                    <div class="score-text" style="color: {cor_val};">{score:.1f}%</div>
-                                    <div style="font-size: 10px; opacity: 0.7; margin-top: 5px;">👆 Passe o mouse</div>
-                                </div>
-                                <div class="flip-card-back">
-                                    <h4 style="margin-bottom: 10px; color: {st.session_state['menu_txt']};">Métricas</h4>
-                                    <div class="metrics-list">
-                                        <div class="metric-row"><span class="metric-label">CSAT:</span> <span class="metric-val">{dados_op['CSAT']}</span></div>
-                                        <div class="metric-row"><span class="metric-label">TPC:</span> <span class="metric-val">{dados_op['TPC']}</span></div>
-                                        <div class="metric-row"><span class="metric-label">Interação:</span> <span class="metric-val">{dados_op['Interação']}</span></div>
-                                        <div class="metric-row"><span class="metric-label">IR:</span> <span class="metric-val">{dados_op['IR']}</span></div>
-                                        <div class="metric-row"><span class="metric-label">Pontualidade:</span> <span class="metric-val">{dados_op['Pontualidade']}</span></div>
-                                        <div class="metric-row"><span class="metric-label">Meta:</span> <span class="metric-val">{dados_op['Meta']}</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        """
+                        # NOVO: CARTÃO FLIP 3D SEM RECUO (ZERO IDENTAÇÃO) PARA NÃO QUEBRAR
+                        html_cards += f"""<div class="flip-card" onclick="void(0)"><div class="flip-card-inner"><div class="flip-card-front"><div class="medal-icon">{icon}</div><img src="{avatar_url}" class="avatar-img"><div class="name-text">{nome}</div><div class="score-text" style="color: {cor_val};">{score:.1f}%</div><div style="font-size: 10px; opacity: 0.7; margin-top: 5px;">👆 Passe o mouse</div></div><div class="flip-card-back"><h4 style="margin-bottom: 10px; color: {st.session_state['menu_txt']};">Métricas</h4><div class="metrics-list"><div class="metric-row"><span class="metric-label">Meta (TAM):</span> <span class="metric-val">{score:.1f}%</span></div><div class="metric-row"><span class="metric-label">CSAT:</span> <span class="metric-val">-</span></div><div class="metric-row"><span class="metric-label">TPC:</span> <span class="metric-val">-</span></div><div class="metric-row"><span class="metric-label">Interação:</span> <span class="metric-val">-</span></div><div class="metric-row"><span class="metric-label">Pontualidade:</span> <span class="metric-val">-</span></div></div></div></div></div>"""
                     
                     html_cards += '</div>'
                     st.markdown(html_cards, unsafe_allow_html=True)
