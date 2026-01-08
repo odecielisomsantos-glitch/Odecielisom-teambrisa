@@ -476,8 +476,11 @@ def main():
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
+            
+            # --- CONTAGEM DE RISCO (IGNORA ZERADOS) ---
             df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
             qtd_nivel_1 = len(df_risco_real)
+            
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
@@ -488,7 +491,7 @@ def main():
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # --- LINHA 2 DE KPIS EXPANDIDA ---
+        # --- LINHA 2 DE KPIS EXPANDIDA (5 COLUNAS) ---
         kpi4, kpi5, kpi6, kpi7, kpi8 = st.columns(5)
         try:
             val_tpc = dados_brutos[8][14] if len(dados_brutos) > 8 else "0"
@@ -547,22 +550,16 @@ def main():
                 st.markdown(f"### 🕸️ Perfil do Operador (Média)")
                 if filtro_op and not df_grafico.empty:
                     
-                    # 1. Pega os dados do Operador Selecionado
                     df_op_radar = df_grafico[df_grafico['Operador'] == filtro_op]
                     
                     if not df_op_radar.empty:
-                        # 2. Lista de Métricas de Interesse
                         metricas_radar = ['CSAT', 'TPC', 'Interação', 'IR', 'Pontualidade']
-                        
                         valores_radar = []
                         meta_radar = []
                         
-                        # 3. Calcula a Média de cada métrica
                         for m in metricas_radar:
-                            # Tenta achar a linha da métrica
                             linha = df_op_radar[df_op_radar['Metrica'].str.contains(m, case=False, na=False)]
                             if not linha.empty:
-                                # Converte colunas de data para numeros e tira a media
                                 vals_str = linha.iloc[0, 2:].values
                                 vals_num = [tratar_porcentagem(v) for v in vals_str if v != '' and v != '-']
                                 if vals_num:
@@ -573,17 +570,13 @@ def main():
                             else:
                                 valores_radar.append(0)
                             
-                            # Meta Fixa ou Dinâmica (Aqui fixei em 100% ou 90% para ilustrar o alvo)
-                            # Se você tiver a meta no Excel, podemos puxar igual puxamos o valor.
-                            if m == 'TPC': meta_radar.append(15) # Exemplo: TPC em minutos é diferente de %
-                            else: meta_radar.append(100) # Padrão 100%
+                            if m == 'TPC': meta_radar.append(15) 
+                            else: meta_radar.append(100)
                         
-                        # 4. Criação do Gráfico
                         fig_radar = go.Figure()
 
-                        # Linha de Meta (Tracejada Vermelha)
                         fig_radar.add_trace(go.Scatterpolar(
-                            r=[100, 100, 100, 100, 100], # Valor de alvo visual (ajuste se necessário)
+                            r=[100, 100, 100, 100, 100],
                             theta=metricas_radar,
                             fill=None,
                             name='Meta Alvo',
@@ -591,7 +584,6 @@ def main():
                             line_dash='dash'
                         ))
 
-                        # Linha Realizada (Preenchida Azul)
                         fig_radar.add_trace(go.Scatterpolar(
                             r=valores_radar,
                             theta=metricas_radar,
@@ -608,18 +600,19 @@ def main():
                                     range=[0, 100],
                                     gridcolor=st.session_state['chart_grid'],
                                     linecolor=st.session_state['chart_grid'],
-                                    tickfont=dict(color=st.session_state['menu_txt'])
+                                    tickfont=dict(color=st.session_state['menu_txt'], size=15) # AUMENTO FONTE
                                 ),
                                 angularaxis=dict(
-                                    tickfont=dict(size=14, color=st.session_state['menu_txt'], weight='bold')
+                                    tickfont=dict(size=22, color=st.session_state['menu_txt'], weight='bold') # AUMENTO FONTE RÓTULOS
                                 )
                             ),
                             showlegend=True,
+                            legend=dict(font=dict(size=16)), # AUMENTO FONTE LEGENDA
                             paper_bgcolor=st.session_state['chart_bg'],
                             plot_bgcolor=st.session_state['chart_bg'],
                             font_color=st.session_state['chart_font'],
-                            margin=dict(l=40, r=40, t=20, b=20),
-                            height=400
+                            margin=dict(l=60, r=60, t=20, b=20),
+                            height=450
                         )
                         
                         st.plotly_chart(fig_radar, use_container_width=True)
