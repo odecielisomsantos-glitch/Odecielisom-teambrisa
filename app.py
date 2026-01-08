@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import plotly.express as px
+import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
 import time 
@@ -75,8 +76,8 @@ def aplicar_tema():
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
         div[data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: 0 10px 15px {shadow}; }}
-        div[data-testid="stMetricValue"] {{ font-size: 28px !important; font-weight: 800; color: #00FF7F !important; }}
-        div[data-testid="stMetricLabel"] {{ font-size: 15px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
+        div[data-testid="stMetricValue"] {{ font-size: 32px !important; font-weight: 800; color: #00FF7F !important; }}
+        div[data-testid="stMetricLabel"] {{ font-size: 16px !important; font-weight: 700 !important; color: {metric_label}; opacity: 0.8; }}
         
         /* Inputs */
         .stSelectbox div[data-baseweb="select"] > div, .stTextInput input, .stFormSubmitButton > button {{
@@ -93,10 +94,50 @@ def aplicar_tema():
         }}
         
         /* RANKING CARD VISUAL */
-        .ranking-grid {{
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; padding: 30px 0; perspective: 1000px;
+        .ranking-card-inner {{
+            width: 100%;
+            background-color: {card_bg};
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            box-shadow: 0 4px 12px {shadow};
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 10px;
+            position: relative;
+            margin-top: 15px;
+            margin-bottom: 10px;
         }}
         
+        .medal-icon {{ font-size: 40px; position: absolute; top: -20px; z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2)); }}
+        .avatar-img {{
+            width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
+            border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
+            margin-bottom: 10px; margin-top: 10px;
+        }}
+        .name-text {{
+            font-size: 13px; font-weight: 700; color: {text_color}; text-align: center;
+            line-height: 1.2; margin-bottom: 5px; height: 35px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+        }}
+        .score-text {{ font-size: 22px; font-weight: 900; letter-spacing: -1px; }}
+        
+        /* Botão Personalizado */
+        .stButton button {{
+            width: 100%;
+            border-radius: 20px;
+            border: 1px solid {border_color};
+            background-color: transparent;
+            color: {text_color};
+            font-size: 12px;
+        }}
+        .stButton button:hover {{
+            border-color: #00FF7F;
+            color: #00FF7F;
+            background-color: {card_bg};
+        }}
+        
+        /* CSS 3D Flip Card */
         .flip-card {{
             background-color: transparent;
             width: 220px;
@@ -104,7 +145,6 @@ def aplicar_tema():
             perspective: 1000px;
             margin-top: 15px;
         }}
-        
         .flip-card-inner {{
             position: relative;
             width: 100%;
@@ -115,54 +155,19 @@ def aplicar_tema():
             border-radius: 16px;
             box-shadow: 0 4px 8px {shadow};
         }}
-        
-        .flip-card:hover .flip-card-inner {{
-            transform: rotateY(180deg);
-        }}
-        
+        .flip-card:hover .flip-card-inner {{ transform: rotateY(180deg); }}
         .flip-card-front, .flip-card-back {{
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            border-radius: 16px;
-            border: 1px solid {border_color};
-            background-color: {card_bg};
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
+            position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            border-radius: 16px; border: 1px solid {border_color}; background-color: {card_bg};
+            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px;
         }}
-        
         .flip-card-front {{ z-index: 2; }}
-        
         .flip-card-back {{
-            transform: rotateY(180deg);
-            background-color: {card_bg};
-            border: 1px solid #00FF7F;
+            transform: rotateY(180deg); background-color: {card_bg}; border: 1px solid #00FF7F;
             box-shadow: 0 0 15px rgba(0, 255, 127, 0.1);
         }}
-        
-        .medal-icon {{ font-size: 45px; position: absolute; top: -25px; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15)); }}
-        .avatar-img {{
-            width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
-            border: 4px solid {card_bg}; box-shadow: 0 5px 15px {shadow};
-            margin-bottom: 15px; margin-top: 15px;
-        }}
-        .name-text {{
-            font-size: 14px; font-weight: 700; color: {text_color};
-            line-height: 1.3; margin-bottom: 10px; height: 40px; display: flex; align-items: center; justify-content: center; text-transform: uppercase;
-        }}
-        .score-text {{ font-size: 26px; font-weight: 900; letter-spacing: -1px; }}
-        
-        .metrics-list {{
-            width: 100%; text-align: left; font-size: 13px; color: {text_color}; margin-top: 10px;
-        }}
-        .metric-row {{
-            display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid {border_color};
-        }}
+        .metrics-list {{ width: 100%; text-align: left; font-size: 13px; color: {text_color}; margin-top: 10px; }}
+        .metric-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid {border_color}; }}
         .metric-row:last-child {{ border-bottom: none; }}
         .metric-label {{ font-weight: 600; opacity: 0.8; }}
         .metric-val {{ font-weight: 800; color: #00FF7F; }}
@@ -318,7 +323,6 @@ def extrair_metricas_resumo(nome, df_completo):
                     vals_validos = [v for v in vals if v != "" and v != "-"]
                     if vals_validos:
                         metricas[m] = vals_validos[-1]
-    
     return metricas
 
 # --- 7. VISUALIZAÇÃO ---
@@ -472,11 +476,8 @@ def main():
             media_time = df_tam_total[df_tam_total['TAM'] > 0]['TAM'].mean()
             melhor_op_nome = df_tam_total.iloc[0]['Colaborador']
             melhor_op_valor = df_tam_total.iloc[0]['TAM']
-            
-            # --- CONTAGEM DE RISCO (IGNORA ZERADOS) ---
             df_risco_real = df_tam_total[(df_tam_total['TAM'] < 70) & (df_tam_total['TAM'] > 0.01)]
             qtd_nivel_1 = len(df_risco_real)
-            
         else:
             media_time, melhor_op_valor, qtd_nivel_1 = 0, 0, 0
             melhor_op_nome = "-"
@@ -487,7 +488,7 @@ def main():
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # --- LINHA 2 DE KPIS EXPANDIDA (5 COLUNAS) ---
+        # --- LINHA 2 DE KPIS EXPANDIDA ---
         kpi4, kpi5, kpi6, kpi7, kpi8 = st.columns(5)
         try:
             val_tpc = dados_brutos[8][14] if len(dados_brutos) > 8 else "0"
@@ -542,28 +543,90 @@ def main():
 
                 st.markdown("---")
                 
-                st.markdown(f"### 📞 TMA - Voz e Chat (Minutos)")
-                if not df_tma_total.empty:
-                    fig_tma = px.bar(
-                        df_tma_total, x='Data', y='Minutos', color='Minutos',
-                        color_continuous_scale=st.session_state['neon_gradient'], text='MinutosRaw'
-                    )
-                    fig_tma.update_traces(
-                        marker_line_width=0, textposition='outside', 
-                        textfont_size=20, textfont_weight='bold', 
-                        textfont_color='#FFFFFF' if st.session_state['tema'] == 'Escuro' else '#31333F', cliponaxis=False 
-                    )
-                    fig_tma.update_layout(
-                        paper_bgcolor=st.session_state['chart_bg'], plot_bgcolor=st.session_state['chart_bg'], font_color=st.session_state['chart_font'],
-                        xaxis_title=None, yaxis_title="Minutos", bargap=0.2, height=350,
-                        margin=dict(l=0, r=0, t=20, b=20), coloraxis_showscale=False, hovermode="x unified",
-                        xaxis=dict(tickfont=dict(size=14, weight='bold'))
-                    )
-                    fig_tma.update_yaxes(showgrid=True, gridwidth=1, gridcolor=st.session_state['chart_grid'], zeroline=False)
-                    fig_tma.update_xaxes(showgrid=False)
-                    st.plotly_chart(fig_tma, use_container_width=True, config={'displayModeBar': False})
+                # --- GRÁFICO DE RADAR (ARANHA) ---
+                st.markdown(f"### 🕸️ Perfil do Operador (Média)")
+                if filtro_op and not df_grafico.empty:
+                    
+                    # 1. Pega os dados do Operador Selecionado
+                    df_op_radar = df_grafico[df_grafico['Operador'] == filtro_op]
+                    
+                    if not df_op_radar.empty:
+                        # 2. Lista de Métricas de Interesse
+                        metricas_radar = ['CSAT', 'TPC', 'Interação', 'IR', 'Pontualidade']
+                        
+                        valores_radar = []
+                        meta_radar = []
+                        
+                        # 3. Calcula a Média de cada métrica
+                        for m in metricas_radar:
+                            # Tenta achar a linha da métrica
+                            linha = df_op_radar[df_op_radar['Metrica'].str.contains(m, case=False, na=False)]
+                            if not linha.empty:
+                                # Converte colunas de data para numeros e tira a media
+                                vals_str = linha.iloc[0, 2:].values
+                                vals_num = [tratar_porcentagem(v) for v in vals_str if v != '' and v != '-']
+                                if vals_num:
+                                    media = sum(vals_num) / len(vals_num)
+                                else:
+                                    media = 0
+                                valores_radar.append(media)
+                            else:
+                                valores_radar.append(0)
+                            
+                            # Meta Fixa ou Dinâmica (Aqui fixei em 100% ou 90% para ilustrar o alvo)
+                            # Se você tiver a meta no Excel, podemos puxar igual puxamos o valor.
+                            if m == 'TPC': meta_radar.append(15) # Exemplo: TPC em minutos é diferente de %
+                            else: meta_radar.append(100) # Padrão 100%
+                        
+                        # 4. Criação do Gráfico
+                        fig_radar = go.Figure()
+
+                        # Linha de Meta (Tracejada Vermelha)
+                        fig_radar.add_trace(go.Scatterpolar(
+                            r=[100, 100, 100, 100, 100], # Valor de alvo visual (ajuste se necessário)
+                            theta=metricas_radar,
+                            fill=None,
+                            name='Meta Alvo',
+                            line_color='#FF4B4B',
+                            line_dash='dash'
+                        ))
+
+                        # Linha Realizada (Preenchida Azul)
+                        fig_radar.add_trace(go.Scatterpolar(
+                            r=valores_radar,
+                            theta=metricas_radar,
+                            fill='toself',
+                            name=f'Realizado ({filtro_op})',
+                            line_color='#00B4D8',
+                            fillcolor='rgba(0, 180, 216, 0.3)'
+                        ))
+
+                        fig_radar.update_layout(
+                            polar=dict(
+                                radialaxis=dict(
+                                    visible=True,
+                                    range=[0, 100],
+                                    gridcolor=st.session_state['chart_grid'],
+                                    linecolor=st.session_state['chart_grid'],
+                                    tickfont=dict(color=st.session_state['menu_txt'])
+                                ),
+                                angularaxis=dict(
+                                    tickfont=dict(size=14, color=st.session_state['menu_txt'], weight='bold')
+                                )
+                            ),
+                            showlegend=True,
+                            paper_bgcolor=st.session_state['chart_bg'],
+                            plot_bgcolor=st.session_state['chart_bg'],
+                            font_color=st.session_state['chart_font'],
+                            margin=dict(l=40, r=40, t=20, b=20),
+                            height=400
+                        )
+                        
+                        st.plotly_chart(fig_radar, use_container_width=True)
+                    else:
+                        st.info("Dados insuficientes para gerar o radar.")
                 else:
-                    st.info("Dados de TMA não encontrados.")
+                    st.info("Selecione um operador para ver o perfil.")
 
                 st.markdown("---")
                 st.markdown("### 💎 Monitoramento de Performance (Diamantes)")
