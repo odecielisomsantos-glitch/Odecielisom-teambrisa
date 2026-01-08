@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from streamlit_option_menu import option_menu
-import time 
+import time
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Painel Tático TeamBrisa", layout="wide", page_icon="☁️", initial_sidebar_state="expanded")
@@ -187,6 +187,7 @@ USUARIOS = {
 # --- 4. CONEXÃO E DADOS ---
 @st.cache_resource
 def conectar_google_sheets():
+    # Certifique-se de configurar st.secrets["gcp_service_account"] no arquivo .streamlit/secrets.toml
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     credenciais_info = dict(st.secrets["gcp_service_account"])
     credenciais_info["private_key"] = credenciais_info["private_key"].replace("\\n", "\n")
@@ -202,7 +203,7 @@ def obter_dados_completos():
         worksheet = sh.worksheet("DADOS-DIA")
         return worksheet.get_all_values()
     except Exception as e:
-        st.error(f"Erro na conexão: {e}")
+        st.error(f"Erro na conexão com Google Sheets: {e}")
         return []
 
 def tratar_porcentagem(valor):
@@ -241,24 +242,30 @@ def processar_matriz_grafico(todos_dados):
         cabecalho = todos_dados[INDICE_CABECALHO]
         dados = todos_dados[INDICE_CABECALHO+1:]
         df = pd.DataFrame(dados)
+        
+        # Ajuste para evitar erro se a planilha tiver menos colunas que o esperado
         novos_nomes = ['Operador', 'Metrica'] + cabecalho[2:]
         if len(df.columns) >= len(novos_nomes):
             df = df.iloc[:, :len(novos_nomes)]
             df.columns = novos_nomes
         else:
             df.columns = novos_nomes[:len(df.columns)]
+            
         df = df[df['Operador'].str.strip() != ""]
         return df
     return pd.DataFrame()
 
 def processar_dados_tma_complexo(todos_dados):
     try:
+        # Cuidado com índices fixos. Se a planilha mudar, isso quebra.
         datas_p1 = todos_dados[1][14:30] 
         vals_p1 = todos_dados[2][14:30]
         datas_p2 = todos_dados[4][14:30]
         vals_p2 = todos_dados[5][14:30]
+        
         datas_full = datas_p1 + datas_p2
         vals_full = vals_p1 + vals_p2
+        
         df = pd.DataFrame({'Data': datas_full, 'MinutosRaw': vals_full})
         df = df[df['Data'].str.strip() != ""]
         df['Minutos'] = df['MinutosRaw'].apply(tratar_tempo_tma)
@@ -319,7 +326,9 @@ def extrair_metricas_resumo(nome, df_completo):
             for m in metricas.keys():
                 linha = df_op[df_op['Metrica'].str.contains(m, case=False, na=False)]
                 if not linha.empty:
+                    # Pega os valores da linha (ignorando as 2 primeiras colunas de ID)
                     vals = linha.iloc[0, 2:].values
+                    # Pega o último valor válido não vazio
                     vals_validos = [v for v in vals if v != "" and v != "-"]
                     if vals_validos:
                         metricas[m] = vals_validos[-1]
@@ -330,9 +339,12 @@ def renderizar_ranking_visual(titulo, df, col_val, cor_input, altura_base=250):
     st.markdown(f"#### {titulo}")
     if not df.empty:
         altura_dinamica = max(altura_base, len(df) * 35)
-        if cor_input.startswith('#'):
+        
+        if isinstance(cor_input, str) and cor_input.startswith('#'):
+            # Cor única
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color_discrete_sequence=[cor_input])
         else:
+            # Cor mapeada por coluna
             fig = px.bar(df, y="Colaborador", x=col_val, text=col_val, orientation='h', color=cor_input, color_discrete_map="identity")
         
         fig.update_traces(
@@ -372,6 +384,7 @@ def login():
             st.markdown("<h2 style='text-align: center; color: #212529;'>🔐 Acesso TeamBrisa</h2>", unsafe_allow_html=True)
             usuario_input = st.text_input("Usuário")
             senha_input = st.text_input("Senha", type="password")
+            
             if st.button("Entrar", use_container_width=True):
                 if usuario_input in USUARIOS:
                     dados_user = USUARIOS[usuario_input]
@@ -394,6 +407,8 @@ def main():
     df_grafico_total = processar_matriz_grafico(dados_brutos)
     df_tma_total = processar_dados_tma_complexo(dados_brutos) 
     df_monit = processar_monitoramento_diamantes(dados_brutos)
+    
+    # Processamento dos Rankings
     df_tam_total = processar_tabela_ranking(dados_brutos, 0, 1, range(1, 25), 'TAM')
     df_n3_total = processar_tabela_ranking(dados_brutos, 5, 6, range(1, 25), 'Nível 3')
     df_n2_total = processar_tabela_ranking(dados_brutos, 8, 9, range(1, 25), 'Nível 2')
@@ -555,7 +570,6 @@ def main():
                     if not df_op_radar.empty:
                         metricas_radar = ['CSAT', 'TPC', 'Interação', 'IR', 'Pontualidade']
                         valores_radar = []
-                        meta_radar = []
                         
                         for m in metricas_radar:
                             linha = df_op_radar[df_op_radar['Metrica'].str.contains(m, case=False, na=False)]
@@ -569,14 +583,15 @@ def main():
                                 valores_radar.append(media)
                             else:
                                 valores_radar.append(0)
-                            
-                            if m == 'TPC': meta_radar.append(15) 
-                            else: meta_radar.append(100)
+                        
+                        # Fechar o círculo do radar
+                        # metricas_radar.append(metricas_radar[0])
+                        # valores_radar.append(valores_radar[0])
                         
                         fig_radar = go.Figure()
 
                         fig_radar.add_trace(go.Scatterpolar(
-                            r=[100, 100, 100, 100, 100],
+                            r=[100] * len(metricas_radar),
                             theta=metricas_radar,
                             fill=None,
                             name='Meta Alvo',
@@ -600,14 +615,14 @@ def main():
                                     range=[0, 100],
                                     gridcolor=st.session_state['chart_grid'],
                                     linecolor=st.session_state['chart_grid'],
-                                    tickfont=dict(color=st.session_state['menu_txt'], size=15) # AUMENTO FONTE
+                                    tickfont=dict(color=st.session_state['menu_txt'], size=15)
                                 ),
                                 angularaxis=dict(
-                                    tickfont=dict(size=22, color=st.session_state['menu_txt'], weight='bold') # AUMENTO FONTE RÓTULOS
+                                    tickfont=dict(size=14, color=st.session_state['menu_txt'], weight='bold')
                                 )
                             ),
                             showlegend=True,
-                            legend=dict(font=dict(size=16)), # AUMENTO FONTE LEGENDA
+                            legend=dict(font=dict(size=16)),
                             paper_bgcolor=st.session_state['chart_bg'],
                             plot_bgcolor=st.session_state['chart_bg'],
                             font_color=st.session_state['chart_font'],
