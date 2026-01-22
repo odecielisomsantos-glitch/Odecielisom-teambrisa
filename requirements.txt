@@ -1,6 +1,1 @@
 streamlit
-pandas
-gspread
-google-auth
-plotly
-streamlit-option-menu
