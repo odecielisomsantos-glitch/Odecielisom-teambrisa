@@ -1,16 +1,31 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 
-# Configuração da página (título na aba do navegador)
-st.set_page_config(page_title="Team Brisa", page_icon="🌊")
+# Configuração da página
+st.set_page_config(page_title="Team Brisa", page_icon="🌊", layout="wide")
 
-# Título principal e subtítulo
-st.title("Olá, Team Brisa! 🌊")
-st.subheader("Nosso site está no ar!")
+# --- BARRA LATERAL (SIDEBAR) ---
+st.sidebar.title("Navegação")
+pagina = st.sidebar.radio("Ir para:", ["Página Inicial", "Dados", "Sobre"])
 
-# Um texto simples
-st.write("Este é o começo do nosso projeto desenvolvido com Streamlit e GitHub.")
+# --- CONTEÚDO PRINCIPAL ---
+if pagina == "Página Inicial":
+    st.title("🌊 Team Brisa - Home")
+    st.write("Bem-vindo ao painel oficial da equipe.")
+    st.image("https://source.unsplash.com/random/800x400/?ocean", caption="Vibe do time")
 
-# Um botão interativo para testar
-if st.button('Clique aqui para uma surpresa'):
-    st.balloons()
-    st.success("Funciona perfeitamente!")
+elif pagina == "Dados":
+    st.title("📊 Nossos Números")
+    # Criando dados fictícios para teste
+    dados = pd.DataFrame(
+        np.random.randn(20, 3),
+        columns=['A', 'B', 'C']
+    )
+    st.line_chart(dados)
+    st.write("Acima vemos os dados de performance simulados.")
+
+elif pagina == "Sobre":
+    st.title("ℹ️ Quem somos")
+    st.write("Nós somos o Team Brisa, focados em desenvolvimento e inovação.")
+    st.info("Contato: contato@teambrisa.com")
