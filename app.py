@@ -27,7 +27,7 @@ st.markdown("""
 # --- CONEXÃO SEGURA COM A PLANILHA ---
 def carregar_dados():
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
+        onn = st.connection("gsheets_novo", type=GSheetsConnection)
         return conn.read(worksheet="Usuarios", ttl=0)
     except Exception as e:
         # Isso vai mostrar o erro real (ex: API não ativa, ou chave inválida)
