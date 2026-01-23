@@ -28,10 +28,10 @@ st.markdown("""
 def carregar_dados():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # worksheet="Usuarios" deve ser o nome exato da aba na sua planilha
         return conn.read(worksheet="Usuarios", ttl=0)
     except Exception as e:
-        st.error("Erro na conexão com o Banco de Dados.")
+        # Isso vai mostrar o erro real (ex: API não ativa, ou chave inválida)
+        st.error(f"Erro detalhado: {e}")
         return None
 
 # --- GESTÃO DE SESSÃO ---
